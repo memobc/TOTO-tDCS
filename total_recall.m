@@ -17,8 +17,13 @@ clear
 addpath(genpath([pwd filesep 'functions']))
 
 % Ask the user for input
+
 % DBmode   = Debugging Mode (smaller screen)
 % subject  = subject number
+
+% Defaults
+DBmode  = 'n';
+subject = 'test';
 
 practice = input('Practice? y/n: ', 's');
 if strcmp(practice, 'n')
@@ -57,15 +62,12 @@ end
 try
     %% Try Running Experiment
     
-    % Generate the Study and Speeded Recognition Lists
+    % Generate Recall Lists
+    path_to_stim   = [pwd filesep 'stim' filesep 'Long_et_al_2015_stimuli.csv'];
     if strcmp(practice, 'y')
-        [Study, Recognition] = generate_lists('practice');
-        Test                 = generate_lists('test', Study);
+        Experiment = generate_lists('practice');
     else
-        path_to_stim   = [pwd filesep 'stim' filesep ''];
-        Experiment1    = generate_lists('experiment1', path_to_stim);
-        Experiment2    = generate_lists('experiment2', path_to_stim);
-        Experiment3    = generate_lists('experiment3', path_to_stim);
+        Experiment = generate_lists('experiment', subject,  path_to_stim);
     end
     
     %-- Welcome to Study!
@@ -74,12 +76,18 @@ try
     directions   = 'Press spacebar to continue';
     instructions_screen(instructions, directions, 'n');    
     
-    session = 0;
+    
+    if strcmp(practice, 'y')
+        session = 6;
+    else
+        session = 0;
+    end
+    
     list    = 0;
     
     %-- Experiment 1
     
-    while session < 7 && strcmp(exp, 'exp1')
+    while session < 7
         
         session = session + 1;
         
@@ -94,66 +102,14 @@ try
             list = list + 1;
 
             % Grab current Study List
-            StudyList = Experiment1(Experiment1.ListID == list, :);
+            StudyList = Experiment(Experiment.ListID == list, :);
 
             % Run experiment!
-            experiment1;
+            recall;
 
         end
     
     end
-    
-    %-- Experiment 2
-    
-    while session < 7 && strcmp(exp, 'exp2')
-        
-        session = session + 1;
-
-         %-- Welcome to Session
-        instructions = ['Welcome to Session ' num2str(session) ' of 7'];
-        directions   = 'Press spacebar to continue';
-        instructions_screen(instructions, directions, 'n');
-        
-        while list < 12
-
-            % Advance list counter        
-            list = list + 1;
-
-            % Grab current Study List
-            StudyList = Experiment2(Experiment2.ListID == list, :);
-
-            % Run experiment!
-            experiment2;
-
-        end
-    
-    end
-    
-    %-- Experiment 3
-    
-    while session < 7 && strcmp(exp, 'exp2')
-        
-        session = session + 1;
-
-         %-- Welcome to Session
-        instructions = ['Welcome to Session ' num2str(session) ' of 7'];
-        directions   = 'Press spacebar to continue';
-        instructions_screen(instructions, directions, 'n');
-        
-        for l = 1:12
-        
-            % Advance list counter
-            list = list + 1;
-
-            % Grab current Study List
-            StudyList = Experiment3(Experiment3.ListID == list, :);
-
-            % Run experiment!
-            experiment3;
-            
-        end
-       
-    end    
     
     %-- End of Study Screen
 
