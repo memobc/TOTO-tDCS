@@ -75,32 +75,21 @@ try
     instructions = 'Welcome to our experiment!';
     directions   = 'Press spacebar to continue';
     instructions_screen(instructions, directions, 'n');    
+
+    %-- Experiment
     
-    
-    if strcmp(practice, 'y')
-        session = 6;
-    else
-        session = 0;
-    end
-    
-    list    = 0;
-    
-    %-- Experiment 1
-    
-    while session < 7
+    for session = 1:7
         
-        session = session + 1;
+        % sess filt
+        sess_filt = Experiment.sessionID == session;
         
          %-- Welcome to Session
         instructions = ['Welcome to Session ' num2str(session) ' of 7'];
         directions   = 'Press spacebar to continue';
         instructions_screen(instructions, directions, 'n'); 
     
-        for l = randperm(16)
+        for list = Shuffle(unique(Experiment.listID(sess_filt))')
             
-            % Advance list counter
-            list = list + 1;
-
             % Grab current Study List
             StudyList = Experiment(Experiment.listID == list, :);
 

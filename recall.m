@@ -64,7 +64,7 @@ instructions_screen(instructions, [], YN.auto);
 
 Screen('FillRect', W, [], [X/2-6 Y/2-4 X/2+6 Y/2+4]);
 Screen('FillRect', W, [], [X/2-4 Y/2-6 X/2+4 Y/2+6]);
-expstart = Screen('Flip', W);
+liststart = Screen('Flip', W);
 WaitSecs(preFix * fast);
 
 %%
@@ -145,3 +145,34 @@ responseString = GetEchoString(W, 'Answers: ', X/10, 9*(Y/10), 0, 255, 1, -1, ti
 
 % Flip Screen (see Screen Flip documentation) and Record the Onset Time
 RecallOnset = Screen(W, 'Flip');
+
+%%
+%==========================================================================
+%				Write Data
+%==========================================================================
+% Write out the results of this retrieval run. Add 5 relevant variables to
+% the retrieval list:
+%
+%   Onset:     the moment in time, relative to the start of the list, that
+%              this trial began
+%
+%   resp:      the key that was hit during this trial
+%
+%   resp_time: the moment in time, relative to the start of the list, 
+%              that a response was made
+%
+%   rt:        the participants reaction time, calculated as Onset -
+%              resp_time
+
+if strcmp(practice, 'n')
+
+    StudyList.Onset      = OnsetTime' - liststart;
+    StudyList.resp       = resp';
+    StudyList.resp_time  = resp_time' - liststart;
+    StudyList.rt         = resp_time' - OnsetTime';
+
+    % Write the ret List for this round to a .csv file in the local directory 
+    % "./data"
+    writetable(StudyList, fullfile('.','data',['full_recall_' subject '_' num2str(list) '_' TimeStamp '.csv']));
+
+end
