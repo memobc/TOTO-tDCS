@@ -96,13 +96,13 @@ try
         directions   = 'Press spacebar to continue';
         instructions_screen(instructions, directions, 'n'); 
     
-        for l = 1:16
+        for l = randperm(16)
             
             % Advance list counter
             list = list + 1;
 
             % Grab current Study List
-            StudyList = Experiment(Experiment.ListID == list, :);
+            StudyList = Experiment(Experiment.listID == list, :);
 
             % Run experiment!
             recall;

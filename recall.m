@@ -1,4 +1,4 @@
-%% TOTAL RECALL Study: Experiment 1
+%% TOTAL RECALL Study: Experiment
 % Called by total_recall.m
 % Written by Kyle Kurkela, kyleakurkela@gmail.com Feburary 2017
 % See https://github.com/memobc/TOTAL_RECALL for more information
@@ -74,20 +74,20 @@ WaitSecs(preFix * fast);
 % Study Routine
 
 % For each trial in Study...
-for curTrial = randperm(height(StudyList))
+for curTrial = 1:height(StudyList)
         
     %-- Stimuli Screen
 
         % Draw the Memoranda
-        DrawFormattedText(W, Experiment1.Word{curTrial}, 'center', 'center');
+        [~, ny, ~] = DrawFormattedText(W, StudyList.Word{curTrial}, 'center', 'center');
         
         % Draw Study Question (e.g., 'Will this item fit into a shoebox?' 'Does
         % this word refer to something living or not living?')
-        DrawFormattedText(W, Experiment1.Question{curTrial}, 'center', 'center');
+        [~, ny, ~] = DrawFormattedText(W, 'Does this word refer to something living or not living?', 'center', ny + 200);
         
         % Draw Reponse Options (e.g., '1 = Def New      |     2 = Prob
         % New')
-        DrawFormattedText(W, Experiment1.ResponseOptions{curTrial}, 'center', 'center');
+        DrawFormattedText(W, '1 = Yes      |     2 = No     |     3 = NA', 'center', ny + 100);
         
         % Flush and start the Psychtoolbox Keyboard Queue. See KbQueue*
         % documentation
@@ -132,17 +132,16 @@ WaitSecs(postFix * fast);
 % Recall!
 
 % Draw the Prompt
-DrawFormattedText(W, '*****', 'center', 'center');
+[~, ny, ~] = DrawFormattedText(W, '*****', 'center', 'center');
 
 % Directions
-DrawFormattedText(W, 'Recall! You have 75 Seconds\n\n Remember type all words in lowercase with spaces in between each word\n\n', 'center', 'center');
+DrawFormattedText(W, 'Recall!\n\n You have 75 Seconds', 'center', ny + 200);
 
 % Timing
 time = GetSecs + recallTime;
 
+% Collect response
+responseString = GetEchoString(W, 'Answers: ', X/10, 9*(Y/10), 0, 255, 1, -1, time);
+
 % Flip Screen (see Screen Flip documentation) and Record the Onset Time
 RecallOnset = Screen(W, 'Flip');
-
-% Collect response
-responseString = GetEchoString(W, 'Answers: ', X/3, 9*(Y/10), 0, 255, 1, -1, time);
-        
