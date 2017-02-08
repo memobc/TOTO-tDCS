@@ -29,13 +29,12 @@ function [varargout] = instructions_screen(varargin)
     if strcmp(autoskip, 'n')
         
         oldkeys = RestrictKeysForKbCheck(keys);
-        [~, keycode, ~] = KbStrokeWait(resp_device);
+        [secs, keycode, ~] = KbStrokeWait(resp_device);
         
         if keycode(KbName('escape')) == 1
-            varargout{1} = false;
-            return
+            varargout{2} = false;
         else
-            varargout{1} = true;
+            varargout{2} = true;
         end
         
         RestrictKeysForKbCheck(oldkeys);
@@ -43,7 +42,10 @@ function [varargout] = instructions_screen(varargin)
     elseif strcmp(autoskip, 'y')
         
         WaitSecs(autoskipWait);
+        secs = GetSecs;
         
     end
+    
+    varargout{1} = secs;
 
 end

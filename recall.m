@@ -131,20 +131,39 @@ WaitSecs(postFix * fast);
 %==========================================================================
 % Recall!
 
-% Draw the Prompt
-[~, ny, ~] = DrawFormattedText(W, '*****', 'center', 'center');
-
-% Directions
-DrawFormattedText(W, 'Recall!\n\n You have 75 Seconds', 'center', ny + 200);
+responseArray = {};
+responseTime  = [];
 
 % Timing
-time = GetSecs + recallTime;
+recallstart = GetSecs;
+time = recallstart + recallTime;
 
-% Collect response
-responseString = GetEchoString(W, 'Answers: ', X/10, 9*(Y/10), 0, 255, 1, -1, time);
+while (time - GetSecs) >= 0
+  
+    display((time - GetSecs))
+    
+    % Draw the Prompt
+    [~, ny, ~] = DrawFormattedText(W, '*****', 'center', 'center');
 
-% Flip Screen (see Screen Flip documentation) and Record the Onset Time
-RecallOnset = Screen(W, 'Flip');
+    % Directions
+    [~, ny, ~] = DrawFormattedText(W, 'Recall!\n\n You have 75 Seconds', 'center', ny + 200);
+    
+    % Draw already submitted answers
+    DrawFormattedText(W, strjoin(responseArray(:)), 'center', ny + 200, [], 50);
+
+    % Collect response
+    response = GetEchoString(W, 'Answers: ', X/5, 9*(Y/10), 0, 255, 1, time, -1); % Kyle's custom GetEchoString, see functions
+
+    % Response Time
+    responseTime  = horzcat(responseTime, GetSecs); %#ok<AGROW>
+    
+    % concatenate reponse
+    responseArray = horzcat(responseArray, {response}); %#ok<AGROW>
+    
+    % Flip Screen (see Screen Flip documentation)
+    Screen(W, 'Flip');
+
+end
 
 %%
 %==========================================================================
@@ -166,13 +185,20 @@ RecallOnset = Screen(W, 'Flip');
 
 if strcmp(practice, 'n')
 
-    StudyList.Onset      = OnsetTime' - liststart;
-    StudyList.resp       = resp';
-    StudyList.resp_time  = resp_time' - liststart;
-    StudyList.rt         = resp_time' - OnsetTime';
+    StudyList.ExpOnset     = OnsetTime' - expStart;
+    StudyList.SessOnset    = OnsetTime' - sessStart;
+    StudyList.ListOnset    = OnsetTime' - liststart;
+    StudyList.resp         = resp';
+    StudyList.resp_time    = resp_time' - liststart;
+    StudyList.rt           = resp_time' - OnsetTime';
+    
+    Recollection = table;
+    Recollection.responses = responseArray';
+    Recollection.resp_time = responseTime' - recallstart;
 
     % Write the ret List for this round to a .csv file in the local directory 
     % "./data"
-    writetable(StudyList, fullfile('.','data',['full_recall_' subject '_' num2str(list) '_' TimeStamp '.csv']));
+    writetable(StudyList, fullfile('.','data',['full_recall_study_' subject '_' num2str(list) '_' TimeStamp '.csv']));
+    writetable(Recollection, fullfile('.', 'data', ['full_recall_test_' subject '_' num2str(list) '_' TimeStamp '.csv']));
 
 end
