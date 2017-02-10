@@ -14,12 +14,12 @@ switch listtype
         
         Stim_poss    = readtable(path_to_stim);
         
-        %-- Create lists for 7 sessions of 16 lists of 16 words
-        %   AKA 7*16*16 = 1792 words
-        %   AKA 7*16    = 112 lists
+        %-- Create lists for 5 sessions of 8 lists of 16 words
+        %   AKA 5*8*16 = 1792 words
+        %   AKA 5*8    = 40 lists
         
             % Initalizing variables
-            totalTrials     = 1792;
+            totalTrials     = 640;
             listID          = zeros(totalTrials, 1);
             sessionID       = zeros(totalTrials, 1);
             Word            = cell(totalTrials, 1);
@@ -29,7 +29,7 @@ switch listtype
             EmotionCategory = cell(totalTrials, 1);
             counter         = 0;
             
-            for session = 1:7
+            for session = 1:5
                 
                 % reset the Already Assigned filters nneach session
                 % Emotion Category Definitions:
@@ -40,7 +40,7 @@ switch listtype
                 
                 for cond = {'2' '8'} % 2 or 8 emotional stimuli
                 
-                    for list = 1:8 % create 8 lists of each condition
+                    for list = 1:4 % create 8 lists of each condition
 
                         % Advance counter
                         counter = counter + 1;

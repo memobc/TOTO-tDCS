@@ -78,13 +78,13 @@ try
 
     %-- Experiment
     
-    for session = 1:7
+    for session = 1:5
         
         % sess filt
         sess_filt = Experiment.sessionID == session;
         
          %-- Welcome to Session
-        instructions = ['Welcome to Session ' num2str(session) ' of 7'];
+        instructions = ['Welcome to Session ' num2str(session) ' of 5'];
         directions   = 'Press spacebar to continue';
         sessStart = instructions_screen(instructions, directions, YN.auto); 
     
