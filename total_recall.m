@@ -65,7 +65,7 @@ try
     % Generate Recall Lists
     path_to_stim   = [pwd filesep 'stim' filesep 'Long_et_al_2015_stimuli.csv'];
     if strcmp(practice, 'y')
-        Experiment = generate_lists('practice');
+        Experiment = generate_lists('practice', path_to_stim);
     else
         Experiment = generate_lists('experiment', subject,  path_to_stim);
     end
@@ -78,13 +78,13 @@ try
 
     %-- Experiment
     
-    for session = 1:5
+    for session = 1:max(Experiment.sessionID)
         
         % sess filt
         sess_filt = Experiment.sessionID == session;
         
          %-- Welcome to Session
-        instructions = ['Welcome to Session ' num2str(session) ' of 5'];
+        instructions = ['Welcome to Session ' num2str(session) ' of ' num2str(max(Experiment.sessionID))];
         directions   = 'Press spacebar to continue';
         sessStart = instructions_screen(instructions, directions, YN.auto); 
     

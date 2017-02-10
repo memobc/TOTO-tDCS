@@ -4,7 +4,30 @@ switch listtype
     
     case 'practice'
         
-        varargout{1}  = readtable([pwd filesep 'stim' filesep 'practice.csv']);
+        path_to_stim = varargin{1};
+        
+        Stim_poss    = readtable(path_to_stim);
+
+        %-- Pick a Random Sample of Emotional Words for this
+        %   Stim List, which varies based on condition
+
+            selection   = datasample(1:height(Stim_poss), 16, 'Replace', false);
+
+            % Assignment Variables
+            Word            = table2cell(Stim_poss(selection, {'Word'}));
+            Arousal         = table2array(Stim_poss(selection, {'Arousal'}));
+            Valence         = table2array(Stim_poss(selection, {'Valence'}));
+            EmotionCategory = repmat({'Practice'}, length(Valence), 1);
+            listID          = ones(length(Valence), 1);
+            sessionID       = ones(length(Valence), 1);
+            Condition       = repmat(-1, length(Valence), 1);
+
+            
+            % Create the Experiment Table
+            Experiment  = table(sessionID, listID, Word, Arousal, Valence, EmotionCategory, Condition);
+            
+            % Output Experiment Table
+            varargout{1} = Experiment;
         
     case 'experiment'
    
