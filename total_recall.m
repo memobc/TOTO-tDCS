@@ -74,7 +74,7 @@ try
 
     instructions = 'Welcome to our experiment!';
     directions   = 'Press spacebar to continue';
-    expStart     = instructions_screen(instructions, directions, 'n');
+    expStart     = instructions_screen(instructions, directions, YN.auto);
 
     %-- Experiment
     
@@ -86,7 +86,7 @@ try
          %-- Welcome to Session
         instructions = ['Welcome to Session ' num2str(session) ' of 7'];
         directions   = 'Press spacebar to continue';
-        sessStart = instructions_screen(instructions, directions, 'n'); 
+        sessStart = instructions_screen(instructions, directions, YN.auto); 
     
         for list = Shuffle(unique(Experiment.listID(sess_filt))')
             
