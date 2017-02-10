@@ -152,7 +152,7 @@ while (time - GetSecs) >= 0
     DrawFormattedText(W, strjoin(responseArray(:)), 'center', ny + 200, [], 50);
 
     % Collect response
-    response = cGetEchoString(W, 'Answers: ', X/5, 9*(Y/10), 0, 255, 1, time, -1); % Kyle's custom GetEchoString, see functions
+    response = GetEchoString(W, 'Answers: ', X/5, 9*(Y/10), 0, 255, 1, -1, time); % Kyle's custom GetEchoString, see functions
 
     % Response Time
     responseTime  = horzcat(responseTime, GetSecs); %#ok<AGROW>
