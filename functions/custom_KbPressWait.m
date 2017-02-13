@@ -31,6 +31,6 @@ end
 
 % Just call KbWait in 'forWhat' mode 2, passing along all input args and
 % returning all output args:
-[secs, keyCode, deltaSecs] = KbWait(deviceNumber, 2, varargin{:});
+[secs, keyCode, deltaSecs] = custom_KbWait(deviceNumber, 2, varargin{:});
 
 return;
