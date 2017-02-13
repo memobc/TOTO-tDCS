@@ -139,20 +139,12 @@ recallstart = GetSecs;
 time = recallstart + recallTime;
 
 while (time - GetSecs) >= 0
-  
-    display((time - GetSecs))
     
-    % Draw the Prompt
-    [~, ny, ~] = DrawFormattedText(W, '*****', 'center', 'center');
-
     % Directions
-    [~, ny, ~] = DrawFormattedText(W, 'Recall!\n\n You have 75 Seconds', 'center', ny + 200);
+    [~, ny, ~] = DrawFormattedText(W, sprintf('Recall!\n\n You have %.0f Seconds Left', (time - GetSecs)), 'center', 'center');
     
-    % Draw already submitted answers
-    DrawFormattedText(W, strjoin(responseArray(:)), 'center', ny + 200, [], 50);
-
     % Collect response
-    response = GetEchoString(W, 'Answers: ', X/5, 9*(Y/10), 0, 255, 1, -1, time); % Kyle's custom GetEchoString, see functions
+    response = custom_GetEchoString(W, 'Answers: ', X/5, 9*(Y/10), 0, 128, 1, -1, time); % Kyle's custom GetEchoString, see functions
 
     % Response Time
     responseTime  = horzcat(responseTime, GetSecs); %#ok<AGROW>
