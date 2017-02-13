@@ -98,6 +98,8 @@ function [secs, keyCode, deltaSecs] = KbWait(deviceNumber, forWhat, untilTime)
 
 % Time (in seconds) to wait between "failed" checks, in order to not
 % overload the system in realtime mode. 5 msecs seems to be an ok value...
+global W
+
 yieldInterval = 0.005;
 
 if nargin < 2 || isempty(forWhat)
@@ -140,6 +142,10 @@ end
 
 secs = -inf;
 while secs < untilTime
+    
+    DrawFormattedText(W, sprintf('Recall!\n\n You have %.0f Seconds Left', (untilTime - GetSecs)), 'center', 'center');
+    Screen('Flip', W, 0, 1);    
+    
     [isDown, secs, keyCode, deltaSecs] = KbCheck(deviceNumber);
     if (isDown == ~forWhat) || (secs >= untilTime)
         return;
