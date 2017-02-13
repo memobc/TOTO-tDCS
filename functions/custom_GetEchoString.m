@@ -86,7 +86,7 @@ Screen('Flip', windowPtr, 0, 1);
 
 while true
     if useKbCheck
-        char = GetKbChar(varargin{:});
+        char = custom_GetKbChar(varargin{:});
     else
         char = GetChar;
     end
