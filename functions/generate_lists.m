@@ -52,77 +52,83 @@ switch listtype
             EmotionCategory = cell(totalTrials, 1);
             counter         = 0;
             
+            Conditions = {'2', '8'};              % Conditions
+            Conditions = Conditions(randperm(2)); % Randomize
+            [A, B]     = Conditions{:};           % Set A and B
+            Conditions = cellstr([A; B; B; A]);            
+            
             for session = 1:4
                 
-                % reset the Already Assigned filters nneach session
+                % reset the Already Assigned filters each session. Note:
+                % stimuli may be repeated BETWEEN sessions, but not WITHIN
+                % sessions. There is not enough unique stimuli to not
+                % repeate for the entire experiment
+                %
                 % Emotion Category Definitions:
                 %   Neutral words have Arousal and Valence between 4 and 6
                 %   Emotional words have Arousal above 6 and Valence below 4
+                
                 emoAAfilter = Stim_poss.Arousal > 6 & Stim_poss.Valence < 4;
-                neuAAfilter = Stim_poss.Arousal < 6 & Stim_poss.Arousal > 4 & Stim_poss.Valence > 4 & Stim_poss.Valence < 6;
+                neuAAfilter = Stim_poss.Arousal < 6 & Stim_poss.Arousal > 4 & Stim_poss.Valence > 4 & Stim_poss.Valence < 6;                
                 
-                for cond = {'2' '8'} % 2 or 8 emotional stimuli
-                
-                    for list = 1:4 % create 8 lists of each condition
+                for list = 1:8 % create 8 for each session
 
-                        % Advance counter
-                        counter = counter + 1;
-                        
-                        % Condition Specifics
-                        if strcmp(cond, '2')
-                            numOfEmo = 2;
-                        elseif strcmp(cond, '8')
-                            numOfEmo = 8;
-                        end
-                        numOfNeu = 16 - numOfEmo;
+                    % Advance counter
+                    counter = counter + 1;
 
-                        %-- Pick a Random Sample of Emotional Words for this
-                        %   Stim List, which varies based on condition
-                        
-                            selection   = datasample(find(emoAAfilter), numOfEmo, 'Replace', false);
-
-                            % Calculate the position we will place the selection in
-                            idx         = (counter-1) * 16 + 1 : (counter-1) * 16 + numOfEmo;
-
-                            % Assignment Variables
-                            Word(idx')            = table2cell(Stim_poss(selection, {'Word'}));
-                            Arousal(idx')         = table2array(Stim_poss(selection, {'Arousal'}));
-                            Valence(idx')         = table2array(Stim_poss(selection, {'Valence'}));
-                            EmotionCategory(idx') = repmat({'Emotional'}, length(idx), 1);
-                            listID(idx')          = repmat(counter, length(idx), 1);
-                            sessionID(idx')       = repmat(session, length(idx), 1);
-                            Condition(idx')       = repmat(cond, length(idx), 1);
-                            
-                            % Update the Already Assigned filter to exclude
-                            % previously selected stim
-                            emoAAfilter(selection) = false;
-
-                        %-- Pick a Random Sample of Neutral Words for this
-                        %   Stim List, which varies based on condition
-                        
-                            selection   = datasample(find(neuAAfilter), numOfNeu, 'Replace', false);
-
-                            % Calculate the position we will place the selection in
-                            idx         = (counter-1) * 16 + 1 + numOfEmo : (counter-1) * 16 + numOfEmo + numOfNeu;
-
-                            % Assignment Variables
-                            Word(idx')            = table2cell(Stim_poss(selection, {'Word'}));
-                            Arousal(idx')         = table2array(Stim_poss(selection, {'Arousal'}));
-                            Valence(idx')         = table2array(Stim_poss(selection, {'Valence'}));
-                            EmotionCategory(idx') = repmat({'Neutral'}, length(idx), 1);
-                            listID(idx')          = repmat(counter, length(idx), 1);
-                            sessionID(idx')       = repmat(session, length(idx), 1);
-                            Condition(idx')       = repmat(cond, length(idx), 1);
-                        
-                        
-                            % Update the Already Assigned filter to exclude
-                            % previously selected stim
-                            neuAAfilter(selection) = false;
-
+                    % Conditions: [A B B A]
+                    if strcmp(Conditions{session}, '2')
+                        numOfEmo = 2;
+                    elseif strcmp(Conditions{session}, '8')
+                        numOfEmo = 8;
                     end
-                    
+                    numOfNeu = 16 - numOfEmo;
+
+                    %-- Pick a Random Sample of Emotional Words for this
+                    %   Stim List, which varies based on condition
+
+                        selection   = datasample(find(emoAAfilter), numOfEmo, 'Replace', false);
+
+                        % Calculate the position we will place the selection in
+                        idx         = (counter-1) * 16 + 1 : (counter-1) * 16 + numOfEmo;
+
+                        % Assignment Variables
+                        Word(idx')            = table2cell(Stim_poss(selection, {'Word'}));
+                        Arousal(idx')         = table2array(Stim_poss(selection, {'Arousal'}));
+                        Valence(idx')         = table2array(Stim_poss(selection, {'Valence'}));
+                        EmotionCategory(idx') = repmat({'Emotional'}, length(idx), 1);
+                        listID(idx')          = repmat(counter, length(idx), 1);
+                        sessionID(idx')       = repmat(session, length(idx), 1);
+                        Condition(idx')       = repmat(Conditions(session), length(idx), 1);
+
+                        % Update the Already Assigned filter to exclude
+                        % previously selected stim
+                        emoAAfilter(selection) = false;
+
+                    %-- Pick a Random Sample of Neutral Words for this
+                    %   Stim List, which varies based on condition
+
+                        selection   = datasample(find(neuAAfilter), numOfNeu, 'Replace', false);
+
+                        % Calculate the position we will place the selection in
+                        idx         = (counter-1) * 16 + 1 + numOfEmo : (counter-1) * 16 + numOfEmo + numOfNeu;
+
+                        % Assignment Variables
+                        Word(idx')            = table2cell(Stim_poss(selection, {'Word'}));
+                        Arousal(idx')         = table2array(Stim_poss(selection, {'Arousal'}));
+                        Valence(idx')         = table2array(Stim_poss(selection, {'Valence'}));
+                        EmotionCategory(idx') = repmat({'Neutral'}, length(idx), 1);
+                        listID(idx')          = repmat(counter, length(idx), 1);
+                        sessionID(idx')       = repmat(session, length(idx), 1);
+                        Condition(idx')       = repmat(Conditions(session), length(idx), 1);
+
+
+                        % Update the Already Assigned filter to exclude
+                        % previously selected stim
+                        neuAAfilter(selection) = false;
+
                 end
-                
+
             end
             
             % Tag on subjectID
@@ -131,7 +137,10 @@ switch listtype
             % Create the Experiment Table
             Experiment  = table(subjectID, sessionID, listID, Word, Arousal, Valence, EmotionCategory, Condition);
             
-            % Randomize the Order of the Stimuli with a each list
+            % Randomize the Order of the Stimuli with a each list such that
+            % the negative stimuli in the '2' condition cannot be the first
+            % stimuli in the list
+            
             for ll = unique(Experiment.listID)'
                 
                 filt = Experiment.listID == ll;
