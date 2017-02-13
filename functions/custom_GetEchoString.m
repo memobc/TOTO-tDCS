@@ -1,4 +1,4 @@
-function [string,terminatorChar] = custom_GetEchoString(windowPtr, msg, x, y, textColor, bgColor, useKbCheck, varargin)
+function [string,terminatorChar, responseStart] = custom_GetEchoString(windowPtr, msg, x, y, textColor, bgColor, useKbCheck, varargin)
 % [string,terminatorChar] = GetEchoString(window,msg,x,y,[textColor],[bgColor],[useKbCheck=0],[deviceIndex],[untilTime=inf],[KbCheck args...]);
 % 
 % Get a string typed at the keyboard. Entry is terminated by <return> or
@@ -84,6 +84,8 @@ output = [msg, ' ', string];
 Screen('DrawText', windowPtr, output, x, y, textColor, bgColor);
 Screen('Flip', windowPtr, 0, 1);
 
+count = 0;
+
 while true
     if useKbCheck
         char = custom_GetKbChar(varargin{:});
@@ -91,6 +93,12 @@ while true
         char = GetChar;
     end
 
+    count = count + 1;
+    
+    if count == 1
+        responseStart = GetSecs;
+    end
+    
     if isempty(char)
         string = '';
         terminatorChar = 0;

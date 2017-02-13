@@ -131,29 +131,40 @@ WaitSecs(postFix * fast);
 %==========================================================================
 % Recall!
 
-responseArray = {};
-responseTime  = [];
+responseArray      = {};
+responseReturned   = [];
+responseStartArray = [];
+escapeKeyArray     = [];
 
 % Timing
 recallstart = GetSecs;
-time = recallstart + recallTime;
+time        = recallstart + recallTime;
 
 while (time - GetSecs) >= 0
     
     % Directions
     [~, ny, ~] = DrawFormattedText(W, sprintf('Recall!\n\n You have %.0f Seconds Left', (time - GetSecs)), 'center', 'center');
-    
-    % Collect response
-    response = custom_GetEchoString(W, 'Answers: ', X/5, 9*(Y/10), 0, 128, 1, -1, time); % Kyle's custom GetEchoString, see functions
 
-    % Response Time
-    responseTime  = horzcat(responseTime, GetSecs); %#ok<AGROW>
+    % Collect response
+    [response, escapeKey, responseStart] = custom_GetEchoString(W, 'Answers: ', X/5, 9*(Y/10), 0, 128, 1, -1, time); % Kyle's custom GetEchoString, see functions
     
-    % concatenate reponse
-    responseArray = horzcat(responseArray, {response}); %#ok<AGROW>
+    % current
+    currentRespReturned = GetSecs;
     
     % Flip Screen (see Screen Flip documentation)
     Screen(W, 'Flip');
+    
+    % Response Time
+    responseReturned    = horzcat(responseReturned, currentRespReturned); %#ok<*AGROW>
+
+    % concatenate reponse
+    responseArray       = horzcat(responseArray, {response});
+
+    % concatenate responseStart
+    responseStartArray  = horzcat(responseStartArray, responseStart);
+    
+    % concatenate escapeKey
+    escapeKeyArray      = horzcat(escapeKeyArray, escapeKey);
 
 end
 
@@ -185,8 +196,10 @@ if strcmp(practice, 'n')
     StudyList.rt           = resp_time' - OnsetTime';
     
     Recollection = table;
-    Recollection.responses = responseArray';
-    Recollection.resp_time = responseTime' - recallstart;
+    Recollection.response     = responseArray';
+    Recollection.respStart    = responseStartArray' - recallstart;
+    Recollection.respReturned = responseReturned' - recallstart;
+    Recollection.espaceKey    = escapeKeyArray';
 
     % Write the ret List for this round to a .csv file in the local directory 
     % "./data"
