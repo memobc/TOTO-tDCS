@@ -36,7 +36,7 @@ if isempty(shiftkeys)
 end
 
 % Get keypress, KbCheck style:
-when = KbPressWait(varargin{:});
+when = custom_KbPressWait(varargin{:});
 keycode = zeros(1,256);
 down = 1;
 secs = when;
