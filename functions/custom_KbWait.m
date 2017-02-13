@@ -1,4 +1,4 @@
-function [secs, keyCode, deltaSecs] = KbWait(deviceNumber, forWhat, untilTime)
+function [secs, keyCode, deltaSecs] = custom_KbWait(deviceNumber, forWhat, untilTime)
 % [secs, keyCode, deltaSecs] = KbWait([deviceNumber][, forWhat=0][, untilTime=inf])
 %
 % Waits until any key is down and optionally returns the time in seconds

@@ -1,4 +1,4 @@
-function [ch, when] = GetKbChar(varargin)
+function [ch, when] = custom_GetKbChar(varargin)
 % [ch, when] = GetKbChar([deviceIndex][, untilTime=inf][, optional KbCheck arguments...]);
 %
 % GetKbChar reimplements basic functionality of GetChar() by use of KbCheck

@@ -1,4 +1,4 @@
-function [string,terminatorChar] = GetEchoString(windowPtr, msg, x, y, textColor, bgColor, useKbCheck, varargin)
+function [string,terminatorChar] = custom_GetEchoString(windowPtr, msg, x, y, textColor, bgColor, useKbCheck, varargin)
 % [string,terminatorChar] = GetEchoString(window,msg,x,y,[textColor],[bgColor],[useKbCheck=0],[deviceIndex],[untilTime=inf],[KbCheck args...]);
 % 
 % Get a string typed at the keyboard. Entry is terminated by <return> or

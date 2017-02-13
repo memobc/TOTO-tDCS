@@ -1,4 +1,4 @@
-function [secs, keyCode, deltaSecs] = KbPressWait(deviceNumber, varargin)
+function [secs, keyCode, deltaSecs] = custom_KbPressWait(deviceNumber, varargin)
 % [secs, keyCode, deltaSecs] = KbPressWait([deviceNumber][, untilTime=inf][, more optional args for KbWait]);
 %
 % KbPressWait waits for a single key press of your subject, ie. it waits
