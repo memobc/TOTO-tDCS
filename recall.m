@@ -149,7 +149,7 @@ while (time - GetSecs) >= 0
     [~, ny, ~] = DrawFormattedText(W, sprintf('Recall!\n\n You have %.0f Seconds Left', (time - GetSecs)), 'center', 'center');
 
     % Collect response
-    [response, escapeKey, responseStart] = custom_GetEchoString(W, 'Answers: ', X/5, 9*(Y/10), 0, 128, 1, -1, time); % Kyle's custom GetEchoString, see functions
+    [response, escapeKey, responseStart] = custom_GetEchoString(W, 'Answers: ', X/3, 9*(Y/10), 0, 128, 1, -1, time); % Kyle's custom GetEchoString, see functions
     
     % current
     currentRespReturned = GetSecs;
