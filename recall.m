@@ -11,7 +11,7 @@
 %-- Instructions
     
     % Instructions
-    instructions = 'Please answer each question';
+    instructions = 'Please answer each question as quickly and accurately as you can';
     
 %-- Timing (all in seconds)
     
@@ -35,7 +35,7 @@
 %   responses to the ENC_keylist keys (see init_psychtoolbox)
     rep_device = -1;
     keylist    = zeros(1, 256);
-    keylist([KbName('1!') KbName('2@')]) = 1;    
+    keylist([KbName('1!') KbName('2@')]) = 1;
     KbQueueCreate(rep_device, keylist)
     
 %-- Establish global variables
@@ -87,7 +87,7 @@ for curTrial = 1:height(StudyList)
         
         % Draw Reponse Options (e.g., '1 = Def New      |     2 = Prob
         % New')
-        DrawFormattedText(W, '1 = Yes      |     2 = No     |     3 = NA', 'center', ny + 100);
+        DrawFormattedText(W, '1 = Living      |     2 = Non-Living', 'center', ny + 100);
         
         % Flush and start the Psychtoolbox Keyboard Queue. See KbQueue*
         % documentation
@@ -112,6 +112,9 @@ for curTrial = 1:height(StudyList)
         WaitSecs(fixTime * fast);
         
 end
+
+% Release the KbQueue. See KbQueue* documentation
+KbQueueRelease(rep_device);
 
 %% 
 %==========================================================================
