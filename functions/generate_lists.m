@@ -34,6 +34,7 @@ switch listtype
         % Parse Default Input Arguments
         sub          = varargin{1};
         path_to_stim = varargin{2};
+        cnbal        = varargin{3};
         
         % Default Study Settings
         numOfSess         = 4;
@@ -53,7 +54,12 @@ switch listtype
         counter         = 0;
 
         Conditions = {'2', '8'};              % Conditions
-        Conditions = Conditions(randperm(2)); % Randomize
+        if strcmpi(cnbal,'A')
+            assignment = [1 2];
+        elseif strcmpi(cnbal, 'B')
+            assignment = [2 1];
+        end
+        Conditions = Conditions(assignment);  % counterbalance
         [A, B]     = Conditions{:};           % Set A and B
         Conditions = cellstr([A; B; B; A]);            
 

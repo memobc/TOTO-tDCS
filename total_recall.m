@@ -27,8 +27,9 @@ subject = 'test';
 
 practice = input('Practice? y/n: ', 's');
 if strcmp(practice, 'n')
-    DBmode   = input('Debug mode? y/n: ', 's');    
+    DBmode   = input('Debug mode? y/n: ', 's');
     subject  = input('Enter subject ID: ', 's');
+    cnbal    = input('Counter Balance?: ', 's');
 end
 
 % Hard coded yes/no variables:
@@ -67,7 +68,7 @@ try
     if strcmp(practice, 'y')
         Experiment = generate_lists('practice', path_to_stim);
     else
-        Experiment = generate_lists('experiment', subject,  path_to_stim);
+        Experiment = generate_lists('experiment', subject,  path_to_stim, cnbal);
     end
     
     %-- Welcome to Study!
