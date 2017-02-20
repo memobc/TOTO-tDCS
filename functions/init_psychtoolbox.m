@@ -52,7 +52,7 @@ global X Y W
 %     W = Screen('OpenWindow', screenNumber, backgroundColor);
 
 if strcmp(DBmode, 'y')
-    W = Screen('OpenWindow', screenNumber, 128, [0 0 1200 1200]); % Smaller screen for testing/debugging
+    W = Screen('OpenWindow', screenNumber, 128, [0 0 1000 1000]); % Smaller screen for testing/debugging
 else
     W = Screen('OpenWindow', screenNumber, 128); % Fullscreen
 end
