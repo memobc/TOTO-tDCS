@@ -1,3 +1,4 @@
 *.m~
 data/*.csv
 timing.m
+*.ipynb_checkpoints/
