@@ -42,7 +42,7 @@ KbName('UnifyKeyNames');
 screens      = Screen('Screens');
 screenNumber = max(screens);
 
-global X Y W 
+global X Y W pahandle
 
 % Open a double buffered fullscreen window on the stimulation screen
 % 'screenNumber' and use background color specified in settings
@@ -62,6 +62,16 @@ end
 
 % Set Default Text Size for this Window
 Screen('TextSize', W, 30);
+
+% Initialize Psych Sound
+InitializePsychSound;
+
+% Open the default audio device [], with mode 2 (== Only audio capture),
+% and a required latencyclass of zero 0 == no low-latency mode, as well as
+% a frequency of 44100 Hz and 2 sound channels for stereo capture.
+% This returns a handle to the audio device:
+freq = 44100;
+pahandle = PsychPortAudio('Open', [], 2, 0, freq, 2);
 
 %%
 %====================================================================================

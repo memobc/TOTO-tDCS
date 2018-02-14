@@ -113,6 +113,9 @@ try
     sca;
     ShowCursor;
     
+    % Close the audio device:
+    PsychPortAudio('Close');
+    
     % If we are using a PC, show the task bar at the bottom
     if strcmp(computer, 'PCWIN')
         ShowHideWinTaskbarMex(1);
@@ -133,6 +136,9 @@ catch
     % Close all PTB screens (sca) and show the cursor again (ShowCursor) 
     sca;
     ShowCursor;
+    
+    % Close the audio device:
+    PsychPortAudio('Close');
     
     % If we are using a PC, show the task bar at the bottom    
     if strcmp(computer, 'PCWIN')

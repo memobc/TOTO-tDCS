@@ -10,37 +10,37 @@
 
 %-- Instructions
     
-    % Instructions
-    instructions = 'Please answer each question as quickly and accurately as you can';
+% Instructions
+instructions = 'Please answer each question as quickly and accurately as you can';
     
 %-- Timing (all in seconds)
     
-    preFix     = 1.5;
+preFix     = 1.5;
 
-    sentTime   = 3;
-    
-    fixTime    = 1; % Long et al use a jittered ITI between 800 and 1200 ms
-    
-    postFix    = 1.3; % Long et al use a jittered delay between 1200 and 1400 ms
-    
-    recallTime = 75;
+sentTime   = 3;
+
+fixTime    = 1; % Long et al use a jittered ITI between 800 and 1200 ms
+
+postFix    = 1.3; % Long et al use a jittered delay between 1200 and 1400 ms
+
+recallTime = 75;
     
 %-- Initialize Response Recorder Variables
 
-    OnsetTime    = zeros(1, height(StudyList));
-    resp         = cell(1, height(StudyList));
-    resp_time    = zeros(1, height(StudyList));
+OnsetTime    = zeros(1, height(StudyList));
+resp         = cell(1, height(StudyList));
+resp_time    = zeros(1, height(StudyList));
 
 %-- Create the Keyboard Queue (see KbQueue documentation), restricting
 %   responses to the ENC_keylist keys (see init_psychtoolbox)
-    rep_device = -1;
-    keylist    = zeros(1, 256);
-    keylist([KbName('1!') KbName('2@')]) = 1;
-    KbQueueCreate(rep_device, keylist)
+rep_device = -1;
+keylist    = zeros(1, 256);
+keylist([KbName('1!') KbName('2@')]) = 1;
+KbQueueCreate(rep_device, keylist)
     
 %-- Establish global variables
 
-    global W X Y
+global W X Y pahandle
 
 %%
 %==========================================================================
@@ -134,42 +134,34 @@ WaitSecs(postFix * fast);
 %==========================================================================
 % Recall!
 
-responseArray      = {};
-responseReturned   = [];
-responseStartArray = [];
-escapeKeyArray     = [];
-
 % Timing
 recallstart = GetSecs;
 time        = recallstart + recallTime;
+
+%-- Audio Recording
+
+% Preallocate an internal audio recording buffer with a capacity of 75
+% seconds.
+PsychPortAudio('GetAudioData', pahandle, 75);
+
+% Start audio capture.
+PsychPortAudio('Start', pahandle);
 
 while (time - GetSecs) >= 0
     
     % Directions
     [~, ny, ~] = DrawFormattedText(W, sprintf('Recall!\n\n You have %.0f Seconds Left', (time - GetSecs)), 'center', 'center');
-
-    % Collect response
-    [response, escapeKey, responseStart] = custom_GetEchoString(W, 'Answers: ', X/3, 9*(Y/10), 0, 128, 1, -1, time); % Kyle's custom GetEchoString, see functions
-    
-    % current
-    currentRespReturned = GetSecs;
-    
+        
     % Flip Screen (see Screen Flip documentation)
     Screen(W, 'Flip');
-    
-    % Response Time
-    responseReturned    = horzcat(responseReturned, currentRespReturned); %#ok<*AGROW>
-
-    % concatenate reponse
-    responseArray       = horzcat(responseArray, {response});
-
-    % concatenate responseStart
-    responseStartArray  = horzcat(responseStartArray, responseStart);
-    
-    % concatenate escapeKey
-    escapeKeyArray      = horzcat(escapeKeyArray, escapeKey);
 
 end
+
+% get the audio OUT of the buffer and into a matrix
+audiodata = PsychPortAudio('GetAudioData', pahandle);
+
+% Stop audio capture.
+PsychPortAudio('Stop', pahandle);
 
 %%
 %==========================================================================
@@ -191,22 +183,21 @@ end
 
 if strcmp(practice, 'n')
 
+    % Add data to `StudyList`
     StudyList.ExpOnset     = OnsetTime' - expStart;
     StudyList.SessOnset    = OnsetTime' - sessStart;
     StudyList.ListOnset    = OnsetTime' - liststart;
     StudyList.resp         = resp';
     StudyList.resp_time    = resp_time' - liststart;
     StudyList.rt           = resp_time' - OnsetTime';
-    
-    Recollection = table;
-    Recollection.response     = responseArray';
-    Recollection.respStart    = responseStartArray' - recallstart;
-    Recollection.respReturned = responseReturned' - recallstart;
-    Recollection.espaceKey    = escapeKeyArray';
 
-    % Write the ret List for this round to a .csv file in the local directory 
-    % "./data"
+    % Write the `StudyList` for this round to a .csv file in the local directory "./data"
     writetable(StudyList, fullfile('.','data',['full_recall_study_' subject '_' num2str(list) '_' TimeStamp '.csv']));
-    writetable(Recollection, fullfile('.', 'data', ['full_recall_test_' subject '_' num2str(list) '_' TimeStamp '.csv']));
+    
+    % Record
+    datadir      = strcat('.', filesep, 'data');
+    filename     = sprintf('total-recall_%s_%s_%s.wav', subject, num2str(list), TimeStamp);
+    fullfilename = fullfile(datadir, filename);
+    audiowrite(fullfilename, recordedaudio, freq);
 
 end
