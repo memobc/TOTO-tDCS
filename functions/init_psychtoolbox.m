@@ -42,7 +42,7 @@ KbName('UnifyKeyNames');
 screens      = Screen('Screens');
 screenNumber = max(screens);
 
-global X Y W pahandle
+global X Y W pahandle freq
 
 % Open a double buffered fullscreen window on the stimulation screen
 % 'screenNumber' and use background color specified in settings
@@ -62,6 +62,11 @@ end
 
 % Set Default Text Size for this Window
 Screen('TextSize', W, 30);
+
+%-- Psych Sound
+
+% Close all PTB audio devices, JUST in case there is one already open.
+PsychPortAudio('Close');
 
 % Initialize Psych Sound
 InitializePsychSound;

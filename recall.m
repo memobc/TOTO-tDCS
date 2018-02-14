@@ -40,7 +40,7 @@ KbQueueCreate(rep_device, keylist)
     
 %-- Establish global variables
 
-global W X Y pahandle
+global W X Y pahandle freq
 
 %%
 %==========================================================================
@@ -191,13 +191,25 @@ if strcmp(practice, 'n')
     StudyList.resp_time    = resp_time' - liststart;
     StudyList.rt           = resp_time' - OnsetTime';
 
-    % Write the `StudyList` for this round to a .csv file in the local directory "./data"
-    writetable(StudyList, fullfile('.','data',['full_recall_study_' subject '_' num2str(list) '_' TimeStamp '.csv']));
-    
-    % Record
+    % the data directory, "./data"
     datadir      = strcat('.', filesep, 'data');
-    filename     = sprintf('total-recall_%s_%s_%s.wav', subject, num2str(list), TimeStamp);
-    fullfilename = fullfile(datadir, filename);
-    audiowrite(fullfilename, recordedaudio, freq);
+    
+    % create a subject sub-directory if it doesn't exist
+    this_subjects_datadir = fullfile(datadir, sprintf('sub-%s', subject), 'beh');
+    if ~exist(this_subjects_datadir, 'dir')
+        mkdir(this_subjects_datadir)
+    end
+    
+    % Write the `StudyList` for this list to a .tsv file following BIDS
+    % format convention
+    filename = sprintf('sub-%s_task-%s_list-%02d_events.tsv', subject, 'study', list);
+    fullfilename = fullfile(this_subjects_datadir, filename); 
+    writetable(StudyList, fullfilename, 'FileType', 'text', 'Delimiter', '\t');
+    
+    % Record audio, again following BIDS format
+    filename     = sprintf('sub-%s_task-%s_list-%02d_audio.wav', subject, 'recall', list);
+    fullfilename = fullfile(this_subjects_datadir, filename);
+    nbits        = 16;
+    psychwavwrite(transpose(audiodata), freq, nbits, fullfilename);
 
 end
