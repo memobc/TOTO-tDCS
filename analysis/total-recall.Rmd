@@ -1,0 +1,29 @@
+---
+title: "Total Recall"
+author: Kyle Kurkela
+output:
+  github_document:
+    html_preview: false
+---
+
+```{r setup, echo=FALSE, warning=FALSE, message=FALSE}
+library('tidyverse')
+```
+
+
+# Read it in
+
+```{r}
+datapath <- '/Users/kylekurkela/Google Drive/Experiments/TOTAL RECALL/Data/'
+datafiles.study <- list.files(datapath,pattern='.*study.*', full.names=TRUE, recursive=TRUE)
+df.study <- do.call(rbind, lapply(datafiles.study, read.csv))
+```
+
+# Total time
+
+```{r}
+df.study %>%
+  group_by(subjectID) %>%
+  summarise(maxOnset = max(ExpOnset) / 60)
+```
+
