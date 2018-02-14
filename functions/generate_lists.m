@@ -53,7 +53,7 @@ switch listtype
         EmotionCategory = cell(totalTrials, 1);
         counter         = 0;
 
-        Conditions = {'2', '8'};              % Conditions
+        Conditions = {'allNeutral', 'halfEmotional'}; % Conditions
         if strcmpi(cnbal,'A')
             assignment = [1 2];
         elseif strcmpi(cnbal, 'B')
@@ -61,12 +61,12 @@ switch listtype
         end
         Conditions = Conditions(assignment);  % counterbalance
         [A, B]     = Conditions{:};           % Set A and B
-        Conditions = cellstr([A; B; B; A]);            
+        Conditions = vertcat({A}, {B}, {B}, {A});
 
         % reset the Already Assigned filters each session. Note:
         % stimuli may be repeated BETWEEN sessions, but not WITHIN
         % sessions. There is not enough unique stimuli to not
-        % repeate for the entire experiment
+        % repeat for the entire experiment
         %
         % Emotion Category Definitions:
         %   Neutral words have Arousal and Valence between 4 and 6
@@ -83,9 +83,9 @@ switch listtype
                 counter = counter + 1;
 
                 % Conditions: [A B B A]
-                if strcmp(Conditions{session}, '2')
-                    numOfEmo = 2;
-                elseif strcmp(Conditions{session}, '8')
+                if strcmp(Conditions{session}, 'allNeutral')
+                    numOfEmo = 0;
+                elseif strcmp(Conditions{session}, 'halfEmotional')
                     numOfEmo = 8;
                 end
                 numOfNeu = 16 - numOfEmo;
@@ -161,7 +161,8 @@ switch listtype
 
                 Experiment(filt,:) = RandomizeRows(Experiment(filt, :));
 
-                idxs = find(filt);                
+                idxs = find(filt);
+                
             end
 
         end

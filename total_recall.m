@@ -68,7 +68,7 @@ try
     if strcmp(practice, 'y')
         Experiment = generate_lists('practice', path_to_stim);
     else
-        Experiment = generate_lists('experiment', subject,  path_to_stim, cnbal);
+        Experiment = generate_lists('experiment', subject, path_to_stim, cnbal);
     end
     
     %-- Welcome to Study!
