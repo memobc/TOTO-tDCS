@@ -85,7 +85,11 @@ try
         sess_filt = Experiment.sessionID == session;
         
          %-- Welcome to Session
-        instructions = ['Welcome to Session ' num2str(session) ' of ' num2str(max(Experiment.sessionID))];
+        if strcmp(practice, 'y')
+            instructions = 'Welcome to the Practice Session';
+        else
+            instructions = ['Welcome to Session ' num2str(session) ' of ' num2str(max(Experiment.sessionID))];
+        end
         directions   = 'Press spacebar to continue';
         sessStart = instructions_screen(instructions, directions, YN.auto); 
     
@@ -104,7 +108,7 @@ try
     %-- End of Study Screen
 
     instructions = 'You are finished with the experiment!';
-    directions   = '';
+    directions   = ' ';
     instructions_screen(instructions, directions, 'y');
         
     %% Finish up

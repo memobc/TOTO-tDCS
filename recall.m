@@ -23,7 +23,11 @@ fixTime    = 1; % Long et al use a jittered ITI between 800 and 1200 ms
 
 postFix    = 1.3; % Long et al use a jittered delay between 1200 and 1400 ms
 
-recallTime = 75;
+if strcmp(practice, 'y')
+    recallTime = 10;
+else
+    recallTime = 75;
+end
     
 %-- Initialize Response Recorder Variables
 
@@ -150,7 +154,7 @@ PsychPortAudio('Start', pahandle);
 while (time - GetSecs) >= 0
     
     % Directions
-    [~, ny, ~] = DrawFormattedText(W, sprintf('Recall!\n\n You have %.0f Seconds Left', (time - GetSecs)), 'center', 'center');
+    DrawFormattedText(W, sprintf('Recall!\n\n You have %.0f Seconds Left', (time - GetSecs)), 'center', 'center');
         
     % Flip Screen (see Screen Flip documentation)
     Screen(W, 'Flip');
@@ -181,35 +185,57 @@ PsychPortAudio('Stop', pahandle);
 %   rt:        the participants reaction time, calculated as Onset -
 %              resp_time
 
-if strcmp(practice, 'n')
+switch practice
+    
+    case 'n'
 
-    % Add data to `StudyList`
-    StudyList.ExpOnset     = OnsetTime' - expStart;
-    StudyList.SessOnset    = OnsetTime' - sessStart;
-    StudyList.ListOnset    = OnsetTime' - liststart;
-    StudyList.resp         = resp';
-    StudyList.resp_time    = resp_time' - liststart;
-    StudyList.rt           = resp_time' - OnsetTime';
+        % Add data to `StudyList`
+        StudyList.ExpOnset     = OnsetTime' - expStart;
+        StudyList.SessOnset    = OnsetTime' - sessStart;
+        StudyList.ListOnset    = OnsetTime' - liststart;
+        StudyList.resp         = resp';
+        StudyList.resp_time    = resp_time' - liststart;
+        StudyList.rt           = resp_time' - OnsetTime';
 
-    % the data directory, "./data"
-    datadir      = strcat('.', filesep, 'data');
+        % the data directory, "./data"
+        datadir      = strcat('.', filesep, 'data');
+
+        % create a subject sub-directory if it doesn't exist
+        this_subjects_datadir = fullfile(datadir, sprintf('sub-%s', subject), 'beh');
+        if ~exist(this_subjects_datadir, 'dir')
+            mkdir(this_subjects_datadir)
+        end
+
+        % Write the `StudyList` for this list to a .tsv file following BIDS
+        % format convention
+        filename = sprintf('sub-%s_task-%s_list-%02d_events.tsv', subject, 'study', list);
+        fullfilename = fullfile(this_subjects_datadir, filename); 
+        writetable(StudyList, fullfilename, 'FileType', 'text', 'Delimiter', '\t');
+
+        % Record audio, again following BIDS format
+        filename     = sprintf('sub-%s_task-%s_list-%02d_audio.wav', subject, 'recall', list);
+        fullfilename = fullfile(this_subjects_datadir, filename);
+        nbits        = 16;
+        psychwavwrite(transpose(audiodata), freq, nbits, fullfilename);
     
-    % create a subject sub-directory if it doesn't exist
-    this_subjects_datadir = fullfile(datadir, sprintf('sub-%s', subject), 'beh');
-    if ~exist(this_subjects_datadir, 'dir')
-        mkdir(this_subjects_datadir)
-    end
-    
-    % Write the `StudyList` for this list to a .tsv file following BIDS
-    % format convention
-    filename = sprintf('sub-%s_task-%s_list-%02d_events.tsv', subject, 'study', list);
-    fullfilename = fullfile(this_subjects_datadir, filename); 
-    writetable(StudyList, fullfilename, 'FileType', 'text', 'Delimiter', '\t');
-    
-    % Record audio, again following BIDS format
-    filename     = sprintf('sub-%s_task-%s_list-%02d_audio.wav', subject, 'recall', list);
-    fullfilename = fullfile(this_subjects_datadir, filename);
-    nbits        = 16;
-    psychwavwrite(transpose(audiodata), freq, nbits, fullfilename);
+    case 'y'
+
+        % How did we do?
+        DrawFormattedText(W, 'How did we do?', 'center', 'center');
+        Screen(W, 'Flip');
+        
+        % Replay recorded audio: Open default device for output, push recorded sound
+        % data into its output buffer:
+        pahandle = PsychPortAudio('Open', [], 1, 0, freq, 1);
+        PsychPortAudio('FillBuffer', pahandle, audiodata);
+
+        % Start playback immediately, wait for start, play once:
+        PsychPortAudio('Start', pahandle, 1, 0, 1);
+
+        % Wait for end of playback, then stop engine:
+        PsychPortAudio('Stop', pahandle, 1);
+
+        % Close the audio device:
+        PsychPortAudio('Close', pahandle);        
 
 end

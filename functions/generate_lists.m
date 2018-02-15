@@ -10,8 +10,9 @@ switch listtype
 
         %-- Pick a Random Sample of Emotional Words for this
         %   Stim List, which varies based on condition
-
-            selection   = datasample(1:height(Stim_poss), 16, 'Replace', false);
+            
+            number_of_stim_to_select = 8;
+            selection   = datasample(1:height(Stim_poss), number_of_stim_to_select, 'Replace', false);
 
             % Assignment Variables
             Word            = table2cell(Stim_poss(selection, {'Word'}));
