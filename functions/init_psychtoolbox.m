@@ -76,7 +76,7 @@ InitializePsychSound;
 % a frequency of 44100 Hz and 2 sound channels for stereo capture.
 % This returns a handle to the audio device:
 freq = 44100;
-pahandle = PsychPortAudio('Open', [], 2, 0, freq, 2);
+pahandle = PsychPortAudio('Open', [], 2, 0, freq, 1);
 
 %%
 %====================================================================================
