@@ -144,10 +144,6 @@ time        = recallstart + recallTime;
 
 %-- Audio Recording
 
-% Preallocate an internal audio recording buffer with a capacity of 75
-% seconds.
-PsychPortAudio('GetAudioData', pahandle, 75);
-
 % Start audio capture.
 PsychPortAudio('Start', pahandle);
 

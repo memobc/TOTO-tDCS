@@ -78,6 +78,10 @@ InitializePsychSound;
 freq = 44100;
 pahandle = PsychPortAudio('Open', [], 2, 0, freq, 1);
 
+% Preallocate an internal audio recording buffer with a capacity of 75
+% seconds.
+PsychPortAudio('GetAudioData', pahandle, 75);
+
 %%
 %====================================================================================
 %							Other Settings
