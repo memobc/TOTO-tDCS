@@ -140,7 +140,7 @@ WaitSecs(postFix * fast);
 
 % Timing
 recallstart = GetSecs;
-time        = recallstart + recallTime;
+time        = recallstart + recallTime * fast;
 
 %-- Audio Recording
 
@@ -183,37 +183,38 @@ PsychPortAudio('Stop', pahandle);
 
 switch practice
     
+    % only write data if we ARE NOT in practice mode
     case 'n'
-
+        
         % Add data to `StudyList`
         StudyList.ExpOnset     = OnsetTime' - expStart;
-        StudyList.SessOnset    = OnsetTime' - sessStart;
+        StudyList.RoundOnset    = OnsetTime' - roundStart;
         StudyList.ListOnset    = OnsetTime' - liststart;
         StudyList.resp         = resp';
         StudyList.resp_time    = resp_time' - liststart;
         StudyList.rt           = resp_time' - OnsetTime';
 
-        % the data directory, "./data"
-        datadir      = strcat('.', filesep, 'data');
+        % the data directory, "./data/sub-<participant_label>/ses-<session_label>/beh"
+        datadir      = fullfile('.', 'data', sprintf('sub-%s', subject), sprintf('ses-%02d', session), 'beh');
 
-        % create a subject sub-directory if it doesn't exist
-        this_subjects_datadir = fullfile(datadir, sprintf('sub-%s', subject), 'beh');
-        if ~exist(this_subjects_datadir, 'dir')
-            mkdir(this_subjects_datadir)
+        % create the data directory if it doesn't already exist
+        if ~exist(datadir, 'dir')
+            mkdir(datadir)
         end
 
         % Write the `StudyList` for this list to a .tsv file following BIDS
         % format convention
-        filename = sprintf('sub-%s_task-%s_list-%02d_events.tsv', subject, 'study', list);
-        fullfilename = fullfile(this_subjects_datadir, filename); 
+        filename = sprintf('sub-%s_ses-%02d_task-%s_list-%02d_events.tsv', subject, session, 'study', list);
+        fullfilename = fullfile(datadir, filename);
         writetable(StudyList, fullfilename, 'FileType', 'text', 'Delimiter', '\t');
 
         % Record audio, again following BIDS format
-        filename     = sprintf('sub-%s_task-%s_list-%02d_audio.wav', subject, 'recall', list);
-        fullfilename = fullfile(this_subjects_datadir, filename);
+        filename     = sprintf('sub-%s_ses-%02d_task-%s_list-%02d_audio.wav', subject, session, 'recall', list);
+        fullfilename = fullfile(datadir, filename);
         nbits        = 16;
         psychwavwrite(transpose(audiodata), freq, nbits, fullfilename);
     
+    % if we are just practicing...
     case 'y'
 
         % How did we do?

@@ -20,12 +20,16 @@ Screen('Preference', 'VisualDebugLevel', 0);
 Screen('Preference', 'SuppressAllWarnings', 1);
 Screen('Preference', 'Verbosity', 0);
 
-% Prevent Keystrokes from being entered into MATLAB command and editor 
-% windows
-ListenChar(2);
+if strcmp(DBmode, 'n')
 
-% Hide the Mouse Cursor
-HideCursor;
+    % Prevent Keystrokes from being entered into MATLAB command and editor 
+    % windows
+    ListenChar(2);
+
+    % Hide the Mouse Cursor
+    HideCursor;
+
+end
 
 % Make sure keyboard mapping is the same on all supported operating 
 % systems

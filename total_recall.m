@@ -30,6 +30,7 @@ if strcmp(practice, 'n')
     DBmode   = input('Debug mode? y/n: ', 's');
     subject  = input('Enter subject ID: ', 's');
     cnbal    = input('Counter Balance?: ', 's');
+    session  = input('Session Number? 1/2: ');
 end
 
 % Hard coded yes/no variables:
@@ -52,7 +53,7 @@ if strcmp(practice, 'y')
     fast = 1;
 else
     if strcmp(DBmode, 'y')
-        fast = 1; % .5 = 2x as fast, .1 = 10x as fast, 1 = real time, ect.
+        fast = .1; % .5 = 2x as fast, .1 = 10x as fast, 1 = real time, ect.
     else
         fast = 1;
     end
@@ -79,21 +80,21 @@ try
 
     %-- Experiment
     
-    for session = 1:max(Experiment.sessionID)
+    for round = 1:max(Experiment.roundID)
         
-        % sess filt
-        sess_filt = Experiment.sessionID == session;
+        % round filt
+        round_filt = Experiment.roundID == round;
         
          %-- Welcome to Session
         if strcmp(practice, 'y')
-            instructions = 'Welcome to the Practice Session';
+            instructions = 'Welcome to the Practice Round';
         else
-            instructions = ['Welcome to Session ' num2str(session) ' of ' num2str(max(Experiment.sessionID))];
+            instructions = ['Welcome to Round ' num2str(round) ' of ' num2str(max(Experiment.roundID))];
         end
         directions   = 'Press spacebar to continue';
-        sessStart = instructions_screen(instructions, directions, YN.auto); 
+        roundStart = instructions_screen(instructions, directions, YN.auto); 
     
-        for list = Shuffle(unique(Experiment.listID(sess_filt))')
+        for list = Shuffle(unique(Experiment.listID(round_filt))')
             
             % Grab current Study List
             StudyList = Experiment(Experiment.listID == list, :);
@@ -135,7 +136,7 @@ catch
  %% If something goes wrong..
  
     % catch error in case something goes wrong in the 'try' part
-    % Do same cleanup as at the end of a regular session
+    % Do same cleanup as at the end of a regular round
 
     % Close all PTB screens (sca) and show the cursor again (ShowCursor) 
     sca;

@@ -20,12 +20,12 @@ switch listtype
             Valence         = table2array(Stim_poss(selection, {'Valence'}));
             EmotionCategory = repmat({'Practice'}, length(Valence), 1);
             listID          = ones(length(Valence), 1);
-            sessionID       = ones(length(Valence), 1);
+            roundID       = ones(length(Valence), 1);
             Condition       = repmat(-1, length(Valence), 1);
 
             
             % Create the Experiment Table
-            Experiment  = table(sessionID, listID, Word, Arousal, Valence, EmotionCategory, Condition);
+            Experiment  = table(roundID, listID, Word, Arousal, Valence, EmotionCategory, Condition);
             
             % Output Experiment Table
             varargout{1} = Experiment;
@@ -38,15 +38,15 @@ switch listtype
         cnbal        = varargin{3};
         
         % Default Study Settings
-        numOfSess         = 4;
-        numOfListsPerSess = 4;
+        numOfRound         = 4;
+        numOfListsPerRound = 4;
         
         Stim_poss    = readtable(path_to_stim);
         
         % Initalizing variables
-        totalTrials     = numOfSess * numOfListsPerSess * 16;
+        totalTrials     = numOfRound * numOfListsPerRound * 16;
         listID          = zeros(totalTrials, 1);
-        sessionID       = zeros(totalTrials, 1);
+        roundID       = zeros(totalTrials, 1);
         Word            = cell(totalTrials, 1);
         Arousal         = zeros(totalTrials, 1);
         Valence         = zeros(totalTrials, 1);
@@ -64,9 +64,9 @@ switch listtype
         [A, B]     = Conditions{:};           % Set A and B
         Conditions = vertcat({A}, {B}, {B}, {A});
 
-        % reset the Already Assigned filters each session. Note:
-        % stimuli may be repeated BETWEEN sessions, but not WITHIN
-        % sessions. There is not enough unique stimuli to not
+        % reset the Already Assigned filters each round. Note:
+        % stimuli may be repeated BETWEEN rounds, but not WITHIN
+        % rounds. There is not enough unique stimuli to not
         % repeat for the entire experiment
         %
         % Emotion Category Definitions:
@@ -76,17 +76,17 @@ switch listtype
         emoAAfilter = Stim_poss.Arousal > 6 & Stim_poss.Valence < 4;
         neuAAfilter = Stim_poss.Arousal < 6 & Stim_poss.Arousal > 4 & Stim_poss.Valence > 4 & Stim_poss.Valence < 6;        
         
-        for session = 1:numOfSess                
+        for round = 1:numOfRound                
 
-            for list = 1:numOfListsPerSess % create 8 for each session
+            for list = 1:numOfListsPerRound % create 8 for each round
 
                 % Advance counter
                 counter = counter + 1;
 
                 % Conditions: [A B B A]
-                if strcmp(Conditions{session}, 'allNeutral')
+                if strcmp(Conditions{round}, 'allNeutral')
                     numOfEmo = 0;
-                elseif strcmp(Conditions{session}, 'halfEmotional')
+                elseif strcmp(Conditions{round}, 'halfEmotional')
                     numOfEmo = 8;
                 end
                 numOfNeu = 16 - numOfEmo;
@@ -105,8 +105,8 @@ switch listtype
                     Valence(idx')         = table2array(Stim_poss(selection, {'Valence'}));
                     EmotionCategory(idx') = repmat({'Emotional'}, length(idx), 1);
                     listID(idx')          = repmat(counter, length(idx), 1);
-                    sessionID(idx')       = repmat(session, length(idx), 1);
-                    Condition(idx')       = repmat(Conditions(session), length(idx), 1);
+                    roundID(idx')       = repmat(round, length(idx), 1);
+                    Condition(idx')       = repmat(Conditions(round), length(idx), 1);
 
                     % Update the Already Assigned filter to exclude
                     % previously selected stim
@@ -126,8 +126,8 @@ switch listtype
                     Valence(idx')         = table2array(Stim_poss(selection, {'Valence'}));
                     EmotionCategory(idx') = repmat({'Neutral'}, length(idx), 1);
                     listID(idx')          = repmat(counter, length(idx), 1);
-                    sessionID(idx')       = repmat(session, length(idx), 1);
-                    Condition(idx')       = repmat(Conditions(session), length(idx), 1);
+                    roundID(idx')       = repmat(round, length(idx), 1);
+                    Condition(idx')       = repmat(Conditions(round), length(idx), 1);
 
 
                     % Update the Already Assigned filter to exclude
@@ -142,7 +142,7 @@ switch listtype
         subjectID   = repmat({sub}, length(Word), 1);
 
         % Create the Experiment Table
-        Experiment  = table(subjectID, sessionID, listID, Word, Arousal, Valence, EmotionCategory, Condition);
+        Experiment  = table(subjectID, roundID, listID, Word, Arousal, Valence, EmotionCategory, Condition);
 
         % Randomize the Order of the Stimuli with a each list such that
         % the negative stimuli in the '2' condition cannot be the first
