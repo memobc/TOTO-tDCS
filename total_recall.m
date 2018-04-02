@@ -15,6 +15,7 @@
 % search path
 clear
 addpath(genpath([pwd filesep 'functions']))
+addpath(genpath([pwd filesep 'thirdparty']))
 
 % Ask the user for input
 
@@ -53,11 +54,26 @@ if strcmp(practice, 'y')
     fast = 1;
 else
     if strcmp(DBmode, 'y')
-        fast = .1; % .5 = 2x as fast, .1 = 10x as fast, 1 = real time, ect.
+        fast = .2; % .5 = 2x as fast, .1 = 10x as fast, 1 = real time, ect.
     else
         fast = 1;
     end
 end
+
+%%
+%==========================================================================
+%                          Initalize LSL
+%==========================================================================
+
+%%%%       Initialize LSL markers for Star Stim EEG      %%%%
+lib = lsl_loadlib();
+
+disp('Creating a new marker stream...');
+info = lsl_streaminfo(lib, 'MyMarkerStream3', 'Markers', 1, 0, ...
+                      'cf_int32', 'myuniquesourceid23443');
+
+disp('Opening an outlet...');
+outlet = lsl_outlet(info);
 
 %% Run Experiment
 
@@ -77,6 +93,10 @@ try
     instructions = 'Welcome to our experiment!';
     directions   = 'Press spacebar to continue';
     expStart     = instructions_screen(instructions, directions, YN.auto);
+    
+    % Send Beginning of Experiment EEG Marker
+    mrk=1;
+    outlet.push_sample(mrk);
 
     %-- Experiment
     
@@ -111,6 +131,10 @@ try
     instructions = 'You are finished with the experiment!';
     directions   = ' ';
     instructions_screen(instructions, directions, 'y');
+    
+    % Send Beginning of Experiment EEG Marker
+    mrk=99;
+    outlet.push_sample(mrk);
         
     %% Finish up
     

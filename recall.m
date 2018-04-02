@@ -17,9 +17,11 @@ instructions = 'Please answer each question as quickly and accurately as you can
     
 preFix     = 1.5;
 
-sentTime   = 3;
+wordTime   = 1;
 
-fixTime    = 1; % Long et al use a jittered ITI between 800 and 1200 ms
+questTime  = 2;
+
+fixTime    = 1.5; % Long et al use a jittered ITI between 800 and 1200 ms
 
 postFix    = 1.3; % Long et al use a jittered delay between 1200 and 1400 ms
 
@@ -34,13 +36,6 @@ end
 OnsetTime    = zeros(1, height(StudyList));
 resp         = cell(1, height(StudyList));
 resp_time    = zeros(1, height(StudyList));
-
-%-- Create the Keyboard Queue (see KbQueue documentation), restricting
-%   responses to the ENC_keylist keys (see init_psychtoolbox)
-rep_device = -1;
-keylist    = zeros(1, 256);
-keylist([KbName('1!') KbName('2@')]) = 1;
-KbQueueCreate(rep_device, keylist)
     
 %-- Establish global variables
 
@@ -56,6 +51,15 @@ global W X Y pahandle freq
 % if desired.
     
 instructions_screen(instructions, [], YN.auto);
+
+% Send Beginning of List Encoding EEG Marker
+mrk=20;
+outlet.push_sample(mrk);
+
+%-- Restrict keypresses to buttons needed for task
+
+RestrictKeysForKbCheck([]);
+RestrictKeysForKbCheck([KbName('1!'), KbName('2@')]);
 
 %%
 %==========================================================================
@@ -80,10 +84,26 @@ WaitSecs(preFix * fast);
 % For each trial in Study...
 for curTrial = 1:height(StudyList)
         
-    %-- Stimuli Screen
+    %-- Word
 
         % Draw the Memoranda
-        [~, ny, ~] = DrawFormattedText(W, StudyList.Word{curTrial}, 'center', 'center');
+        DrawFormattedText(W, StudyList.Word{curTrial}, 'center', 'center');
+        
+        % Flip Screen (see Screen Flip documentation) and Record the Onset
+        % Time
+        OnsetTime(curTrial) = Screen(W, 'Flip');
+        
+        % Send Word Onset EEG Marker
+        mrk=21;
+        outlet.push_sample(mrk);        
+        
+        % Wait "wordTime"
+        WaitSecs(wordTime * fast);
+        
+    %-- Word + Question
+    
+        % Draw the Memoranda
+        [~, ny, ~] = DrawFormattedText(W, StudyList.Word{curTrial}, 'center', 'center');    
         
         % Draw Study Question (e.g., 'Will this item fit into a shoebox?' 'Does
         % this word refer to something living or not living?')
@@ -93,20 +113,51 @@ for curTrial = 1:height(StudyList)
         % New')
         DrawFormattedText(W, '1 = Living      |     2 = Non-Living', 'center', ny + 100);
         
-        % Flush and start the Psychtoolbox Keyboard Queue. See KbQueue*
-        % documentation
-        KbQueueFlush(rep_device);
-        KbQueueStart(rep_device);
-        
         % Flip Screen (see Screen Flip documentation) and Record the Onset
         % Time
         OnsetTime(curTrial) = Screen(W, 'Flip');
         
-        % Wait "picTime"
-        WaitSecs(sentTime * fast);
+        % Send Question Onset EEG Marker
+        mrk=22;
+        outlet.push_sample(mrk); 
                 
-        % Record Responses
-        [resp{curTrial}, resp_time(curTrial)] = record_responses();
+    %-- Record Responses
+    
+        % reset keypress indicator  
+        FlushEvents('keyDown');
+        KeyIsDown = 0;
+        nopressyet = 1;
+
+        % set response time as onset time and response as NR in case they don't respond
+        resp_time(curTrial) = OnsetTime(curTrial);
+        resp{curTrial} = 'NR';
+
+        while (GetSecs) < (OnsetTime(curTrial) + questTime * fast)
+
+            [KeyIsDown, secs, keypress]=KbCheck(-1);
+            WaitSecs(0.001);    % wait 1 ms before checking the keyboard again to prevent overload
+
+            if KeyIsDown  % if key is pressed, stop recording response
+
+                % Send EEG marker once and only once, for first response
+                if secs-OnsetTime(curTrial) > 0.05 && nopressyet==1
+
+                    % Send Response EEG Marker
+                    mrk=23;
+                    outlet.push_sample(mrk);
+                    
+                    % reset nopressyet
+                    nopressyet = 0;
+
+                    % record response and response time
+                    resp{curTrial} = KbName(find(keypress==1));
+                    resp_time(curTrial) = secs;
+                    
+                end  
+
+            end     
+
+        end
         
     %-- Post Trial ITI
         
@@ -116,9 +167,6 @@ for curTrial = 1:height(StudyList)
         WaitSecs(fixTime * fast);
         
 end
-
-% Release the KbQueue. See KbQueue* documentation
-KbQueueRelease(rep_device);
 
 %% 
 %==========================================================================
@@ -147,6 +195,10 @@ time        = recallstart + recallTime * fast;
 % Start audio capture.
 PsychPortAudio('Start', pahandle);
 
+% Send Start of Recall EEG Marker
+mrk=30;
+outlet.push_sample(mrk);
+
 while (time - GetSecs) >= 0
     
     % Directions
@@ -162,6 +214,13 @@ audiodata = PsychPortAudio('GetAudioData', pahandle);
 
 % Stop audio capture.
 PsychPortAudio('Stop', pahandle);
+
+% Send End of Recall EEG Marker
+mrk=39;
+outlet.push_sample(mrk);
+
+% Reset KbKeys
+RestrictKeysForKbCheck([]);
 
 %%
 %==========================================================================
