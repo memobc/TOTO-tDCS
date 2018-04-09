@@ -30,7 +30,6 @@ practice = input('Practice? y/n: ', 's');
 if strcmp(practice, 'n')
     DBmode   = input('Debug mode? y/n: ', 's');
     subject  = input('Enter subject ID: ', 's');
-    cnbal    = input('Counter Balance?: ', 's');
     session  = input('Session Number? 1/2: ');
 end
 
@@ -85,7 +84,7 @@ try
     if strcmp(practice, 'y')
         Experiment = generate_lists('practice', path_to_stim);
     else
-        Experiment = generate_lists('experiment', subject, path_to_stim, cnbal);
+        Experiment = generate_lists('experiment', subject, path_to_stim);
     end
     
     %-- Welcome to Study!

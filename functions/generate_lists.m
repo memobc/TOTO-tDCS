@@ -35,34 +35,31 @@ switch listtype
         % Parse Default Input Arguments
         sub          = varargin{1};
         path_to_stim = varargin{2};
-        cnbal        = varargin{3};
         
         % Default Study Settings
         numOfRound         = 4;
         numOfListsPerRound = 4;
+        numOfLists         = numOfRound * numOfListsPerRound;
         
         Stim_poss    = readtable(path_to_stim);
         
         % Initalizing variables
         totalTrials     = numOfRound * numOfListsPerRound * 16;
         listID          = zeros(totalTrials, 1);
-        roundID       = zeros(totalTrials, 1);
+        roundID         = zeros(totalTrials, 1);
         Word            = cell(totalTrials, 1);
         Arousal         = zeros(totalTrials, 1);
         Valence         = zeros(totalTrials, 1);
-        Condition       = cell(totalTrials, 1);
         EmotionCategory = cell(totalTrials, 1);
         counter         = 0;
 
-        Conditions = {'allNeutral', 'halfEmotional'}; % Conditions
-        if strcmpi(cnbal,'A')
-            assignment = [1 2];
-        elseif strcmpi(cnbal, 'B')
-            assignment = [2 1];
-        end
-        Conditions = Conditions(assignment);  % counterbalance
-        [A, B]     = Conditions{:};           % Set A and B
-        Conditions = vertcat({A}, {B}, {B}, {A});
+        % Create Conditions, a cell arrary of string specifying which list
+        % belongs to which condition. Give the list presentation order a 
+        % good randomization.
+        Condition = {'allNeutral', 'halfEmotional'};
+        Condition = vertcat(repmat(Condition(1), numOfLists/2, 1), ... 
+                             repmat(Condition(2), numOfLists/2, 1));
+        Condition = Condition(randperm(length(Condition)));
 
         % reset the Already Assigned filters each round. Note:
         % stimuli may be repeated BETWEEN rounds, but not WITHIN
@@ -84,9 +81,9 @@ switch listtype
                 counter = counter + 1;
 
                 % Conditions: [A B B A]
-                if strcmp(Conditions{round}, 'allNeutral')
+                if strcmp(Condition{counter}, 'allNeutral')
                     numOfEmo = 0;
-                elseif strcmp(Conditions{round}, 'halfEmotional')
+                elseif strcmp(Condition{counter}, 'halfEmotional')
                     numOfEmo = 8;
                 end
                 numOfNeu = 16 - numOfEmo;
@@ -105,8 +102,7 @@ switch listtype
                     Valence(idx')         = table2array(Stim_poss(selection, {'Valence'}));
                     EmotionCategory(idx') = repmat({'Emotional'}, length(idx), 1);
                     listID(idx')          = repmat(counter, length(idx), 1);
-                    roundID(idx')       = repmat(round, length(idx), 1);
-                    Condition(idx')       = repmat(Conditions(round), length(idx), 1);
+                    roundID(idx')         = repmat(round, length(idx), 1);
 
                     % Update the Already Assigned filter to exclude
                     % previously selected stim
@@ -127,7 +123,6 @@ switch listtype
                     EmotionCategory(idx') = repmat({'Neutral'}, length(idx), 1);
                     listID(idx')          = repmat(counter, length(idx), 1);
                     roundID(idx')       = repmat(round, length(idx), 1);
-                    Condition(idx')       = repmat(Conditions(round), length(idx), 1);
 
 
                     % Update the Already Assigned filter to exclude
@@ -141,30 +136,19 @@ switch listtype
         % Tag on subjectID
         subjectID   = repmat({sub}, length(Word), 1);
 
+        % Expand Condition to fit in the table
+        Condition   = repelem(Condition, 16);
+        
         % Create the Experiment Table
         Experiment  = table(subjectID, roundID, listID, Word, Arousal, Valence, EmotionCategory, Condition);
 
-        % Randomize the Order of the Stimuli with a each list such that
-        % the negative stimuli in the '2' condition cannot be the first
-        % stimuli in the list
+        % Randomize the Order of the Stimuli with a each list
 
         for ll = unique(Experiment.listID)'
 
             filt = Experiment.listID == ll;
 
             Experiment(filt,:) = RandomizeRows(Experiment(filt, :));
-
-            idxs = find(filt);
-
-            while strcmp(Experiment.EmotionCategory(idxs(1)), 'Negative') && strcmp(Experiment.Condition(idxs(1)), '2')
-
-                filt = Experiment.listID == ll;
-
-                Experiment(filt,:) = RandomizeRows(Experiment(filt, :));
-
-                idxs = find(filt);
-                
-            end
 
         end
 
