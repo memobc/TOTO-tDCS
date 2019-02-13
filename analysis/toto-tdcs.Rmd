@@ -1,0 +1,1239 @@
+---
+title: "TOTO-tDCS"
+author: "Kyle Kurkela"
+output: 
+  html_notebook: 
+    code_folding: hide
+    toc: yes
+    toc_float: yes
+---
+
+Welcome to the `TOTO-tDCS` ~~jupyter Notebook~~ R Markdown!
+
+Today we will be presenting the results of the [Memory Modulation Lab](http://www.thememolab.org/)'s `TOTO-tDCS` experiment, analyzed using [Quail](http://cdl-quail.readthedocs.io/en/latest/) and Python 2.7 and plotted using everyone's favorite statistical ecosystem the tidyverse (<3).
+
+# Load in libraries
+
+Let us begin be importing the R packages and python modules we will be using.
+
+```{r setup, warning=FALSE, message=FALSE}
+# reticulate is the R package that allows the transitions between R <--> python
+library('reticulate')
+use_condaenv(condaenv = "py2716", conda = "/anaconda3/bin/conda")
+py_config()
+# <3
+library('tidyverse')
+ 
+library('googlesheets')
+
+library('scales')
+
+library('ez')
+```
+
+```{python import}
+import glob # for matching filenames using wildcards
+import re # regular expressions
+import pandas as pd # a tidyverse esq python data manipulation package
+import quail as q # andy's free recall package
+import numpy as np # arrary manipulation
+import math
+from scipy import stats # python statistics
+import os
+```
+
+# Read in Data
+
+Next, lets read in the `TOTO-tDCS` data.
+
+We will read in the data (currently as .tsv (study) and .csv (recall) files) using pandas' `read_csv` method.
+
+## Study
+
+First, the study phase.
+
+NOTES: 
+- s004 fell asleep  
+- s025 dropped out of the study  
+
+```{r read_and_extract_study}
+# a custom function for reading in the delimitted study data files, extracting the sessionID from the file names.
+custom.read.delim <- function(a){
+  tmp <- read.delim(a)
+  sessionID <- regmatches(x = a, m = regexpr(text = a, pattern = "ses-[0-9]{2}"))
+  tmp <- add_column(tmp, sessionID)
+  return(tmp)
+}
+ 
+# hardcoded path, list all files recursively from that path, 
+# read the files in, and bind it all up into a single data.frame
+files  <- list.files(path = "/Volumes/GoogleDrive/My Drive/Behavioral Data/TOTO-tDCS/", 
+                     recursive = TRUE, 
+                     pattern = "sub-s[0-9]{3}.*\\.tsv", 
+                     full.names = TRUE)
+study  <- lapply(files, custom.read.delim)
+study  <- do.call(rbind, study)
+ 
+# arrange the study data frame in a specific order. Important later on for the quail package.
+study %>%
+  arrange(sessionID, subjectID, Condition, listID, ListOnset) %>%
+  filter(!is.element(set = c("s004", "s025"), el = subjectID))-> study
+```
+
+## Test
+
+Second, the test phase.
+
+```{r read_and_extract_test, warning=FALSE}
+# Defining a custom read csv function, which extracts the sessionID, subjectID, and listID from the filenames
+custom.read.csv <- function(a){
+  
+  # read
+  tmp <- read.csv(a, blank.lines.skip = FALSE)
+  
+  # extract
+  sessionID <- regmatches(x = a, m = regexpr(text = a, pattern = "ses-[0-9]{2}"))
+  subjectID <- regmatches(x = a, m = regexpr(text = a, pattern = "(?<=sub-)s[0-9]{3}", perl = TRUE))
+  listID    <- regmatches(x = a, m = regexpr(text = a, pattern = "(?<=list-)[0-9]{2}", perl = TRUE))
+  
+  if (is_empty(tmp[[1]])){ # if file is empty
+    emily <- "emptyFile"
+    tmp   <- add_column(tmp, emily, sessionID, subjectID, listID)
+    tmp   <- add_row(tmp, 
+                     emily = emily, 
+                     sessionID = sessionID, 
+                     subjectID = subjectID, 
+                     listID = listID)
+  } else if(!is.element("emily", colnames(tmp))){ # if there isn't an Emily column
+    emily <- "noEmilyColumn"
+    tmp   <- add_column(tmp, emily, sessionID, subjectID, listID)
+  } else { # otherwise
+    tmp   <- add_column(tmp, sessionID, subjectID, listID)
+  }
+  
+  return(tmp)
+  
+}
+ 
+# hardcoded path, list all files recursively from that path, 
+# read the files in, select only the necessary columns, 
+# and bind it all up into a single data.frame
+files <- list.files(path = "/Volumes/GoogleDrive/My Drive/Behavioral Data/TOTO-tDCS/", 
+                    recursive = TRUE, 
+                    pattern = "sub-s[0-9]{3}.*\\.csv", 
+                    full.names = TRUE)
+recall  <- lapply(files, custom.read.csv)
+recall  <- lapply(recall, select_, "emily", "sessionID", "subjectID", "listID")
+recall  <- do.call(rbind, recall) %>%
+           mutate(listID = as.integer(listID))
+```
+
+# Prepare data
+
+The `Quail` python package needs the data to be arranged in a very specific way. The data need to be arranged as a list of lists, each outer list containing all the of the lists for a subject and each inner list all of the words for a specific list.
+
+## Study
+
+```{python dataframe_to_list_of_lists}
+# Goal: turn `study` data.frame into a lists of lists
+ 
+# initialize two variables `presented_words` and `presented_word_features`, 
+# which will be used to create the egg.
+presented_words = []
+presented_word_features = []
+ 
+# for each subject...
+for s in r.study['subjectID'].unique():
+
+    # all of the data related to the current subject
+    cur_sub = r.study[r.study['subjectID'] == s]
+    
+    # initalizing temporary variables to hold the words 
+    # on this list and the features of the words on this list
+    lists = []
+    lists_features = []
+    
+    for ses in cur_sub['sessionID'].unique():
+    
+      cur_sub_cur_ses = cur_sub[cur_sub['sessionID'] == ses]
+  
+      # for each list...
+      for l in cur_sub_cur_ses['listID'].unique():
+      
+          # current list subset of cur_sub_cur_ses data.frame
+          cur_list = cur_sub_cur_ses[cur_sub_cur_ses['listID'] == l]
+  
+          # the words presented on this list
+          words = list(cur_list['Word'])
+  
+          # force lowercase
+          words = map(str.lower, words)
+  
+          # append
+          lists.append(words)
+          lists_features.append(cur_list[['EmotionCategory']].to_dict(orient='records'))
+ 
+    # append
+    presented_words.append(lists)
+    presented_word_features.append(lists_features)
+```
+
+## Test
+
+```{python}
+# Goal: turn `recall` data.frame into a lists of lists. 
+# Note: must match the order of the `study` data.frame
+
+# initalize a list of recalled words
+recalled_words = []
+
+# for each subject...
+for s in r.study['subjectID'].unique():
+    
+    # the current subject's encoding (or study) data
+    cur_sub = r.study[r.study['subjectID'] == s]
+    
+    # initialize a temporary variable to hold the recalled words
+    lists = []
+    
+    for ses in cur_sub['sessionID'].unique():
+    
+        # current subject current sessionID
+        cur_sub_cur_ses = cur_sub[cur_sub['sessionID'] == ses]
+    
+        # for each list from **encoding/study**...
+        for l in cur_sub_cur_ses['listID'].unique():
+        
+            # the current list from **recall**
+            cur_list = r.recall[np.array(r.recall['listID'] == l) & np.array(r.recall['subjectID'] == s) & np.array(r.recall['sessionID'] == ses)]
+    
+            # words recalled from this list for this subject
+            words = cur_list.iloc[:, 0].tolist()
+    
+            # remove tildes (~) in words
+            while '~' in words:
+                words.remove('~')
+    
+            # remove question marks (?) in words
+            while '?' in words:
+                words.remove('?')
+                
+            if words == "emptyFile":
+                words = []
+    
+            # remove nans
+            c = -1
+            for w in words:
+                c = c + 1            
+                if type(w) != str:
+                    words[c] = ''
+    
+            # strip leading and trailing white space
+            c = -1
+            for w in words:
+                c = c + 1            
+                words[c] = words[c].strip()
+    
+            # force the words to be lowercase and append
+            lists.append(map(str.lower, words))
+
+    # append
+    recalled_words.append(lists)
+```
+
+# Eggs!
+
+Lets create our `egg`, the variable used in the quail package.
+
+```{python}
+# create an egg
+egg = q.Egg(pres=presented_words, rec=recalled_words, features=presented_word_features)
+
+# information about the egg
+egg.info()
+```
+
+# Demographics
+
+Who were our participants?
+
+```{r}
+require('googlesheets')
+```
+
+```{r warning=FALSE, message=FALSE}
+# Grab the participant information questionnaire
+participant_info_gsheet <- gs_title("Participant Information Questionnaire")
+participant_info_df     <- gs_read(participant_info_gsheet, range = "A1:N26", progress = FALSE)
+ 
+# clean it up a bit
+participant_info_df %>%
+ filter(!is.element(set = c("s004", "s025"), el = subject)) %>%
+ select(age, gender, education, sleep, stress) -> participant_info_df
+ 
+# Numeric Data
+participant_info_df %>%
+  summarise_if(is.numeric, c('mean', 'sd'), na.rm = TRUE)
+
+# Catergorical Data
+participant_info_df %>%
+  count(gender)
+```
+
+
+# Accuracy
+
+Below are the two lines needed to calculate recall accuracy in the quail package.
+
+```{python}
+recall_accuracy = q.analyze(egg, analysis='accuracy')
+recall_accuracy.reset_index(inplace=True)
+```
+
+## Subject Summary
+
+How did participants do overall?
+
+Below is a table displaying ALL OF THE DATA. I.e., how every participant performed on every list.  
+
+```{r plot_in_ggplot, warning=FALSE}
+(py$recall_accuracy %>%
+  mutate(sessionID = if_else(condition = is.element(set = seq(0,15,1), el = List), 
+                             true = "ses-01", 
+                             false = "ses-02"),
+         Condition = if_else(condition = is.element(set = c(seq(0,7,1), seq(16,23,1)), el = List), 
+                             true = "allNeutral", 
+                             false = "halfEmotional")) %>%
+  rename(proportion = `0`) %>%
+  mutate(Subject = rep(unique(as.character(study$subjectID)), each = 32)) -> d.f)
+```
+
+A visual summary:
+
+```{r}
+# Base Plot
+d.f %>%
+  ggplot(aes(x = Subject, y = proportion, fill = Subject)) +
+    theme_grey() +
+    theme(panel.grid.major = element_blank(), 
+          panel.grid.minor = element_blank()) +
+    scale_y_continuous(limits = c(0,1), 
+                       labels = c("0%", "25%", "50%", "75%", "100%"), 
+                       name = "Proportion Recalled") -> Base
+
+# By Subject
+Base +
+  stat_summary(geom = "bar", 
+               position = position_dodge(width = .9), 
+               width = .5, 
+               fun.data = "mean_se") +
+  stat_summary(geom = "errorbar", 
+               width = .2, 
+               position = position_dodge(width = .9), 
+               fun.data = "mean_se") +
+  geom_hline(yintercept = mean(d.f$proportion), color = "red") +
+  scale_fill_discrete(guide = FALSE) +
+  labs(title = "Proportion Recalled", 
+      subtitle = "By Subject",
+      caption = "Red Line = Overall Mean") +
+  theme(axis.text.x = element_text(angle = 90, hjust = 1))
+```
+
+
+Participants recalled, on average, a little over 50% of the words with performance ranging from min = ~25% to max = ~87%. This looks like a nice grand mean, far away from the floor and ceiling. There should be enough room for our conditions to push the proportions around nicely.  
+
+## Session Order
+
+Does session order matter? Did participants do better in the second session than the first?
+
+```{r by_session, warning=FALSE}
+d.f %>%
+  group_by(Subject, sessionID) %>%
+  summarise(proportion = mean(proportion)) %>%
+  t.test(proportion ~ sessionID, data = ., paired = TRUE) -> testResult
+
+df <- testResult$parameter[["df"]]
+t  <- round(testResult$statistic, 2)
+p  <- round(testResult$p.value, 2)
+
+Base +
+  aes(x = sessionID, fill = NULL, color = sessionID) +
+  stat_summary_bin(aes(group = Subject), geom = "line", fun.y = "mean") +
+  stat_summary_bin(aes(group = Subject), geom = "point", fun.y = "mean") +
+  stat_summary(geom = "crossbar", fun.data = "mean_se", width = .1) +  
+  annotate(geom = "text", x = 1.5, y = 1, label = paste0("t(", df, ") =", t, ", p = ", p)) +
+  scale_fill_discrete(guide = FALSE) +
+  scale_x_discrete(labels = c("01", "02")) +
+  labs(title = "Proportion Recalled",
+        subtitle = "By Session",
+        x = "Session")
+```
+
+Participants seemed to do slightly better in session 2 than in session 1, although this effect is not statistically significant.  
+
+## Condition
+
+Did participants recall different numbers of words from the `allNeutral` lists than the `halfEmotional` lists?
+
+The `allNeutral` condition were recall lists made up entirely of neutral words (as operationalized by Long et al., 2015).
+The `halfEmotional` condition were recall lists made up of halfEmotional words (as operationalized by Long et al., 2015).
+
+```{r by_condition, warning=FALSE}
+d.f %>%
+  group_by(Subject, Condition) %>%
+  summarise(proportion = mean(proportion)) %>%
+  t.test(proportion ~ Condition, data = ., paired = TRUE) -> testResult
+
+df <- testResult$parameter[["df"]]
+t  <- round(testResult$statistic, 2)
+p  <- round(testResult$p.value, 2)
+
+Base +
+  stat_summary_bin(aes(x = Condition, group = Subject, fill = NULL), 
+                   geom = "point", 
+                   fun.y = "mean") + 
+  stat_summary_bin(aes(x = Condition, group = Subject, fill = NULL), 
+                   geom = "line", 
+                   fun.y = "mean") +
+  stat_summary(aes(x = Condition, color = Condition, fill = NULL), geom = "crossbar", width = .2, fun.data = "mean_se") +
+  annotate(geom = "text", x = 1.5, y = 1, label = paste0("t(", df, ") =", t, ", p = ", p)) +
+  theme_grey() +
+  theme(panel.grid.major = element_blank(), panel.grid.minor = element_blank()) +  
+  labs(title = "Proportion Recalled",
+        subtitle = "By Condition",
+        x = "Condition")
+```
+
+There seemes to be a trend for a slighly greater number of words remembered in the `halfEmotional` lists, but, again, the result is not statistically significant.  
+
+## Protocol
+
+Drum roll...is there an overall effect of the Protocol? Does stimulation have any effect over sham?  
+
+Below is the meta data on the sessions. Note: Stimulation Protocol was counerbalanced.  
+
+```{r grab_subjectIDs_googlesheet, message=FALSE, warning=FALSE}
+# Grab the subject IDs google sheets
+subjectIDs_gsheet <- gs_title("TOTO-tDCS_SubjectIDs")
+subjectIDs_df     <- gs_read(subjectIDs_gsheet, range = "A11:I85", progress = FALSE)
+ 
+# clean it up a bit
+(subjectIDs_df %>%
+  filter(!is.na(Date)) %>% # remove the NA rows, indicative of subjects not yet collected
+  slice(2:n()) %>% # remove the first row
+  select(SubjectID, Session, StimulationProtocolID, TimeOfDay) %>% # only need these columns for the present purposes
+  mutate(Session = if_else(Session == 1, "ses-01", "ses-02")) %>%
+  filter(SubjectID != "s034 take 1") %>%
+  mutate(SubjectID = gsub(pattern = " take 2", replacement = "", x = SubjectID)) -> subjectIDs_df)
+```
+
+A visual:  
+
+```{r}
+# Combine
+d.f <- left_join(d.f, subjectIDs_df, by = c("Subject" = "SubjectID", "sessionID" = "Session"))
+
+# stats
+d.f %>%
+  group_by(Subject, StimulationProtocolID) %>%
+  summarise(proportion = mean(proportion)) %>%
+  t.test(proportion ~ StimulationProtocolID, data = ., paired = TRUE) -> testResult
+
+df <- testResult$parameter[["df"]]
+t  <- round(testResult$statistic, 2)
+p  <- round(testResult$p.value, 2)
+
+# plot!
+d.f %>%
+  ggplot(aes(x = StimulationProtocolID, y = proportion, group = Subject, color = StimulationProtocolID)) +
+  stat_summary_bin(geom = "point", fun.y = "mean") + 
+  stat_summary_bin(geom = "line", fun.y = "mean") +
+  stat_summary(aes(group = NULL), 
+               geom = "crossbar", 
+               width = .2, 
+               fun.data = "mean_se") +
+  annotate(geom = "text", 
+           x = 1.5, 
+           y = 1, 
+           label = paste0("t(", df, ") =", t, ", p = ", p)) +
+  scale_y_continuous(limits = c(0,1), 
+                     labels = c("0%", "25%", "50%", "75%", "100%"), 
+                     name = "Proportion Recalled") +
+  theme_grey() +
+  theme(panel.grid.major = element_blank(), 
+        panel.grid.minor = element_blank()) +
+  labs(title = "Proportion Recalled",
+        subtitle = "By Protocol",
+        x = "Condition")
+```
+
+Numerically, pariticpants tended to remember more words in protocol A than in protocol B. The result, however, was not statistically significant. 
+
+# Temporal Contiguity
+
+Did stimulation influence the Temporal Contiguity Phenomenon?  
+
+First, lets calculate it in python using `Quail`.  
+
+```{python}
+temporal = q.analyze(egg, analysis='temporal')
+temporal.reset_index(inplace=True)
+```
+
+Read into R and clean up a bit.  
+
+```{r}
+(py$temporal %>%
+  mutate(sessionID = if_else(condition = is.element(set = seq(0,15,1), el = List), 
+                             true = "ses-01", 
+                             false = "ses-02"),
+         Condition = if_else(condition = is.element(set = c(seq(0,7,1), seq(16,23,1)), el = List), 
+                             true = "allNeutral", 
+                             false = "halfEmotional")) %>%
+  rename(proportion = `0`) %>%
+  mutate(Subject = rep(unique(as.character(study$subjectID)), each = 32)) -> d.f.temporal)
+```
+
+## Subject Overview
+
+What does the temporal contiguity effect look like across participants?
+
+```{r, warning = FALSE}
+d.f.temporal %>%
+  ggplot(aes(x = Subject, y = proportion, fill = Subject)) +
+  stat_summary(geom = "bar", position = position_dodge(width = .9), width = .5, fun.data = "mean_se") +
+  stat_summary(geom = "errorbar", width = .2, position = position_dodge(width = .9), fun.data = "mean_se") +
+  geom_hline(yintercept = mean(d.f.temporal$proportion, na.rm = TRUE), color = "red") +
+  scale_fill_discrete(guide = FALSE) +
+  labs(title = "Temporal Contiguity", 
+      subtitle = "By Subject",
+      caption = "Red Line = Overall Mean\ns004 and s025 dropped out of the study") + 
+  theme(axis.text.x = element_text(angle = 90, hjust = 1)) +
+  scale_y_continuous(limits=c(.5, 1), oob = rescale_none)
+```
+
+Note: a score of "1" would indicate perfect temporal contiguity. In other words, a participant *always* remembered words in temporal sequence. A score of .5 indicates a complete absence of temporal contiguity: there was absolutely no evidence of a tendency to recall words successively.  
+
+## Session Order
+
+Does temporal contiguity differ by session? Do participants tend to change the temporal clustering in the second session?
+
+```{r warning=FALSE}
+# stats
+d.f.temporal %>%
+  group_by(Subject, sessionID) %>%
+  summarise(proportion = mean(proportion, na.rm = TRUE)) %>%
+  t.test(proportion ~ sessionID, data = ., paired = TRUE) -> testResult
+
+df <- testResult$parameter[["df"]]
+t  <- round(testResult$statistic, 2)
+p  <- round(testResult$p.value, 3)
+
+# plot!
+d.f.temporal %>%
+  ggplot(aes(x = sessionID, y = proportion, group = Subject, color = sessionID)) +
+  stat_summary_bin(geom = "point", fun.y = "mean") +
+  stat_summary_bin(geom = "line", fun.y = "mean") +
+  stat_summary(aes(group = NULL), 
+               geom = "crossbar", 
+               width = .2, 
+               fun.data = "mean_se") +
+  scale_y_continuous(name = "Temporal Contiguity Score") +
+  annotate(geom = "text", 
+           x = 1.5, 
+           y = 1, 
+           label = paste0("t(", df, ") =", t, ", p = ", p)) +
+  theme_grey() +
+  theme(panel.grid.major = element_blank(), 
+        panel.grid.minor = element_blank()) +
+  labs(title = "Temporal Contiguity",
+        subtitle = "By Session",
+        x = "Session Order")
+```
+
+Participants displayed signifcantly more temporal clustering in `ses-02` than in `ses-01`. I hypotheses that this result reflects participants learning a strategy implemented at encoding to assist remembering words in termporal order. For example: creating a story linking the words together in the order that they appeared.  
+
+## Condition
+
+```{r warning=FALSE}
+# stats
+d.f.temporal %>%
+  group_by(Subject, Condition) %>%
+  summarise(proportion = mean(proportion, na.rm = TRUE)) %>%
+  t.test(proportion ~ Condition, data = ., paired = TRUE) -> testResult
+
+df <- testResult$parameter[["df"]]
+t  <- round(testResult$statistic, 2)
+p  <- round(testResult$p.value, 2)
+
+# plot!
+d.f.temporal %>%
+  ggplot(aes(x = Condition, y = proportion, group = Subject, color = Condition)) +
+  stat_summary_bin(geom = "point", 
+                   fun.y = "mean") +
+  stat_summary_bin(geom = "line", 
+                   fun.y = "mean") +
+  stat_summary(aes(group = NULL), 
+               geom = "crossbar", 
+               width = .2, 
+               fun.data = "mean_se") +
+  scale_y_continuous(name = "Temporal Contiguity Score") +
+  annotate(geom = "text", 
+           x = 1.5, 
+           y = 1, 
+           label = paste0("t(", df, ") =", t, ", p = ", p)) +
+  theme_grey() +
+  theme(panel.grid.major = element_blank(), 
+        panel.grid.minor = element_blank()) +
+  labs(title = "Temporal Contiguity",
+       subtitle = "By Condition",
+       x = "Condition")
+```
+
+There appears to be no difference in temporal contiguity by Valence condition.  
+
+## Protocol
+
+Is there an effect of protocol?!?!
+
+```{r, warning=FALSE}
+# combine
+d.f.temporal <- left_join(d.f.temporal, subjectIDs_df, by = c("Subject" = "SubjectID", "sessionID" = "Session"))
+
+# stats
+d.f.temporal %>%
+  group_by(Subject, StimulationProtocolID) %>%
+  summarise(proportion = mean(proportion, na.rm = TRUE)) %>%
+  t.test(proportion ~ StimulationProtocolID, data = ., paired = TRUE) -> testResult
+
+df <- testResult$parameter[["df"]]
+t  <- round(testResult$statistic, 2)
+p  <- round(testResult$p.value, 2)
+
+# plot!
+d.f.temporal %>%
+  ggplot(aes(x = StimulationProtocolID, y = proportion, group = Subject, color = StimulationProtocolID)) +
+  stat_summary_bin(geom = "point", fun.y = "mean") + 
+  stat_summary_bin(geom = "line", fun.y = "mean") +
+  stat_summary(aes(group = NULL), 
+               geom = "crossbar", 
+               width = .2, 
+               fun.data = "mean_se") +
+  annotate(geom = "text", 
+           x = 1.5, 
+           y = 1, 
+           label = paste0("t(", df, ") =", t, ", p = ", p)) +
+  theme_grey() +
+  theme(panel.grid.major = element_blank(), 
+        panel.grid.minor = element_blank()) +
+  labs(title = "Temporal Contiguity",
+       subtitle = "By Protocol",
+       x = "Protocol")
+```
+
+...no, unfortunetly not. :(
+
+What is the distribution of temporal contiguity scores for each subject?
+
+```{r}
+for(s in d.f.temporal$Subject){
+}
+d.f.temporal %>%
+  filter(Subject == "s001") %>%
+  ggplot(aes(x=proportion, fill=interaction(Condition, StimulationProtocolID))) +
+  geom_histogram(binwidth = .1, alpha=.5, position="identity")
+```
+
+
+Full ANOVA
+
+```{r, warning=FALSE,message=FALSE}
+require('ez')
+d.f.temporal %>%
+  filter(Subject != "s020") %>%
+  group_by(Subject, StimulationProtocolID, Condition) %>%
+  summarise(proportion = mean(proportion, na.rm = TRUE)) %>%
+  ezANOVA(
+    data = .,
+    dv = proportion,
+    within = .(Condition, StimulationProtocolID),
+    wid = Subject,
+    detailed = TRUE,
+    return_aov = TRUE
+  ) -> temporal.ANOVA
+print(temporal.ANOVA$ANOVA)
+model.tables(temporal.ANOVA$aov, "means", se = TRUE)
+```
+
+```{r, message=FALSE,waring=FALSE}
+d.f.temporal %>%
+  filter(Subject != "s020") %>%
+  group_by(Subject, StimulationProtocolID, Condition) %>%
+  summarise(proportion = mean(proportion, na.rm = TRUE)) %>%
+  ezPlot(
+    data = .,
+    dv = .(proportion),
+    within = .(Condition, StimulationProtocolID),
+    wid = .(Subject),
+    x = .(StimulationProtocolID),
+    split = .(Condition),
+    levels = list(
+        StimulationProtocolID = list(
+            new_order = c('A','B'), 
+            new_names = c('Stimulation','Sham')),
+        Condition = list(
+            new_order = c('allNeutral', 'halfEmotional'),
+            new_names = c('All Neutral', 'Half Emotional')
+        ))
+  ) -> p
+p +
+  scale_y_continuous(limits = c(NA, NA)) +
+  labs(title = "Temporal Contiguity",
+       subtitle = "As a Function of List Composition and Stimulation",
+       y = "Temporal Contiguity Score",
+       x = "Stimulation",
+       colour = "List Composition",
+       shape = "List Composition",
+       linetype = "List Composition")
+ggsave(filename = "~/Desktop/TotoTDCS_Figure1.png")
+```
+
+# Exploratory
+
+Lets explore!
+
+## Time of Day
+
+Recent work from Dave Gallo's lab suggests that the effect of tDCS may depend on **time of day**, whereby stimulation enhances memory primarily for participant who participate in the morning.
+
+```{r}
+d.f %>%
+  group_by(Subject, TimeOfDay, StimulationProtocolID) %>%
+  summarise(proportion = mean(proportion)) %>%
+  filter(!is.element(el = Subject, set = c("s024", "s032"))) -> tmp 
+
+tmp %>%
+  ggplot(aes(x = StimulationProtocolID, y = proportion, fill = NULL, color = StimulationProtocolID)) +
+  facet_grid(~TimeOfDay) +
+  stat_summary_bin(aes(group = Subject), geom = "line", fun.y = "mean") +
+  stat_summary_bin(aes(group = Subject), geom = "point", fun.y = "mean") +
+  stat_summary(geom = "crossbar", fun.data = "mean_se", width = .1) + 
+  scale_fill_discrete(guide = FALSE) +
+  labs(title = "Proportion Recalled",
+        subtitle = "By Protocol and Time of Day",
+        x = "Protocol") -> Graph
+
+# AM
+tmp %>%
+  filter(TimeOfDay == "AM") %>%
+  t.test(proportion ~ StimulationProtocolID, data = ., paired = TRUE) -> testResult
+  df <- testResult$parameter[["df"]]
+  t  <- round(testResult$statistic, 2)
+  p  <- round(testResult$p.value, 2)
+
+  AM_lab <- paste0("t(", df, ") =", t, ", p = ", p)
+  
+# PM
+tmp %>%
+  filter(TimeOfDay == "PM") %>%
+  t.test(proportion ~ StimulationProtocolID, data = ., paired = TRUE) -> testResult
+  df <- testResult$parameter[["df"]]
+  t  <- round(testResult$statistic, 2)
+  p  <- round(testResult$p.value, 2)
+  
+  PM_lab <- paste0("t(", df, ") =", t, ", p = ", p)
+
+d.f.annot <- data.frame(
+  label = c(AM_lab, PM_lab),
+  TimeOfDay = c("AM", "PM"),
+  x = c(1.5, 1.5),
+  y = c(1, 1)
+)
+
+Graph +
+  geom_text(data = d.f.annot, mapping = aes(x = x, y = y, label = label, color = NULL))
+
+```
+
+There is no evidence supporting this idea in our data. Keep in mind, the N's in both AM and PM conditions are different, since this was not something we explicitly controlled for. Also, note that this analysis involved dropping subjects that performed sessions 1 and session 2 at different times of day (i.e., either AM-->PM or PM-->AM).  
+
+```{r}
+d.f.temporal %>%
+  group_by(Subject, TimeOfDay, StimulationProtocolID) %>%
+  summarise(proportion = mean(proportion, na.rm = TRUE)) %>%
+  filter(!is.element(el = Subject, set = c("s024", "s032"))) -> tmp 
+
+tmp %>%
+  ggplot(aes(x = StimulationProtocolID, y = proportion, fill = NULL, color = StimulationProtocolID)) +
+  facet_grid(~TimeOfDay) +
+  stat_summary_bin(aes(group = Subject), geom = "line", fun.y = "mean") +
+  stat_summary_bin(aes(group = Subject), geom = "point", fun.y = "mean") +
+  stat_summary(geom = "crossbar", fun.data = "mean_se", width = .1) + 
+  scale_fill_discrete(guide = FALSE) +
+  labs(title = "Temporal Contiguity",
+        subtitle = "By Protocol and Time Of Day",
+        x = "Protocol") -> Graph
+
+# AM
+tmp %>%
+  filter(TimeOfDay == "AM") %>%
+  t.test(proportion ~ StimulationProtocolID, data = ., paired = TRUE) -> testResult
+  df <- testResult$parameter[["df"]]
+  t  <- round(testResult$statistic, 2)
+  p  <- round(testResult$p.value, 2)
+
+  AM_lab <- paste0("t(", df, ") =", t, ", p = ", p)
+  
+# PM
+tmp %>%
+  filter(TimeOfDay == "PM") %>%
+  t.test(proportion ~ StimulationProtocolID, data = ., paired = TRUE) -> testResult
+  df <- testResult$parameter[["df"]]
+  t  <- round(testResult$statistic, 2)
+  p  <- round(testResult$p.value, 2)
+  
+  PM_lab <- paste0("t(", df, ") =", t, ", p = ", p)
+
+d.f.annot <- data.frame(
+  label = c(AM_lab, PM_lab),
+  TimeOfDay = c("AM", "PM"),
+  x = c(1.5, 1.5),
+  y = c(1, 1)
+)
+
+Graph +
+  geom_text(data = d.f.annot, mapping = aes(x = x, y = y, label = label, color = NULL))
+
+```
+
+Samesies for temporal contiguity.  
+
+## Counter Balance Breakup
+
+Does stimulation interact with order?  
+
+```{r}
+d.f %>%
+  group_by(Subject, sessionID, StimulationProtocolID) %>%
+  summarise(proportion = mean(proportion)) -> tmp 
+
+tmp %>%
+  ggplot(aes(x = StimulationProtocolID, y = proportion, fill = NULL, color = StimulationProtocolID)) +
+  facet_grid(~sessionID) +
+  geom_point(aes(color = NULL)) +
+  stat_summary(geom = "crossbar", fun.data = "mean_se", width = .1) + 
+  scale_fill_discrete(guide = FALSE) +
+  labs(title = "Proportion Recalled",
+        subtitle = "By Protocol and Session Order",
+        x = "Protocol") -> Graph
+
+# AM
+tmp %>%
+  filter(sessionID == "ses-01") %>%
+  t.test(proportion ~ StimulationProtocolID, data = ., paired = FALSE) -> testResult
+  df <- round(testResult$parameter[["df"]], 2)
+  t  <- round(testResult$statistic, 2)
+  p  <- round(testResult$p.value, 2)
+
+  ses01_lab <- paste0("t(", df, ") = ", t, ", p = ", p)
+  
+# PM
+tmp %>%
+  filter(sessionID == "ses-02") %>%
+  t.test(proportion ~ StimulationProtocolID, data = ., paired = FALSE) -> testResult
+  df <- round(testResult$parameter[["df"]], 2)
+  t  <- round(testResult$statistic, 2)
+  p  <- round(testResult$p.value, 2)
+  
+  ses02_lab <- paste0("t(", df, ") = ", t, ", p = ", p)
+
+d.f.annot <- data.frame(
+  label = c(ses01_lab, ses02_lab),
+  sessionID = c("ses-01", "ses-02"),
+  x = c(1.5, 1.5),
+  y = c(1, 1)
+)
+
+Graph +
+  geom_text(data = d.f.annot, mapping = aes(x = x, y = y, label = label, color = NULL))
+```
+
+```{r}
+d.f.temporal %>%
+  group_by(Subject, sessionID, StimulationProtocolID) %>%
+  summarise(proportion = mean(proportion, na.rm = TRUE)) -> tmp 
+
+tmp %>%
+  ggplot(aes(x = StimulationProtocolID, y = proportion, fill = NULL, color = StimulationProtocolID)) +
+  facet_grid(~sessionID) +
+  geom_point(aes(color = NULL)) +
+  stat_summary(geom = "crossbar", fun.data = "mean_se", width = .1) + 
+  scale_fill_discrete(guide = FALSE) +
+  labs(title = "Temporal Contiguity",
+        subtitle = "By Protocol and Session Order",
+        x = "Protocol") -> Graph
+
+# AM
+tmp %>%
+  filter(sessionID == "ses-01") %>%
+  t.test(proportion ~ StimulationProtocolID, data = ., paired = FALSE) -> testResult
+  df <- round(testResult$parameter[["df"]], 2)
+  t  <- round(testResult$statistic, 2)
+  p  <- round(testResult$p.value, 2)
+
+  ses01_lab <- paste0("t(", df, ") = ", t, ", p = ", p)
+  
+# PM
+tmp %>%
+  filter(sessionID == "ses-02") %>%
+  t.test(proportion ~ StimulationProtocolID, data = ., paired = FALSE) -> testResult
+  df <- round(testResult$parameter[["df"]], 2)
+  t  <- round(testResult$statistic, 2)
+  p  <- round(testResult$p.value, 2)
+  
+  ses02_lab <- paste0("t(", df, ") = ", t, ", p = ", p)
+
+d.f.annot <- data.frame(
+  label = c(ses01_lab, ses02_lab),
+  sessionID = c("ses-01", "ses-02"),
+  x = c(1.5, 1.5),
+  y = c(1, 1)
+)
+
+Graph +
+  geom_text(data = d.f.annot, mapping = aes(x = x, y = y, label = label, color = NULL))
+```
+
+No, it does not seem to.  
+
+## Emotional Words
+
+First, Score Each Word as recalled or not:
+
+```{r}
+# Score Each Word as recalled or not
+
+study$recalled <- FALSE
+
+for(ses in unique(study$sessionID)){
+  for(s in unique(study$subjectID)){
+     for(l in unique(study$listID)){
+        
+       # Filter Session & Filter Subject & Filter List
+       Fses <- recall$sessionID == ses
+       FS <- recall$subjectID == s
+       FL <- recall$listID == l
+       curScurL_recall <- recall[FL & FS & Fses,]
+
+       # Filter Session & Filter Subject & Filter List
+       Fses <- study$sessionID == ses
+       FS <- study$subjectID == s
+       FL <- study$listID == l
+       curScurL_study  <- study[FL & FS & Fses,]       
+              
+       # Loop over words
+       for(w in curScurL_study$Word){
+         Fw <- study$Word == w
+         study$recalled[Fses & FS & FL & Fw] <- any(grepl(pattern = w, x = curScurL_recall$emily, ignore.case = TRUE))
+       }
+    } 
+  }
+}
+
+```
+
+Are emotional words more likely to be recalled than neutral words in the `halfEmotional` condition? Is this _at_ _the_ _expense_ _of_ Neutral Words in this condition?  
+
+Lets run an ANOVA to find out.  
+
+A table:  
+
+```{r}
+(study %>%
+  group_by(subjectID, EmotionCategory, Condition) %>%
+  summarize(proportion = mean(recalled)) %>% 
+  unite(col = "Category", Condition, EmotionCategory, sep = "-") -> PropRecalledByEmotion)
+```
+
+A figure:  
+
+```{r, warning=FALSE}
+defaultColors <- hue_pal()(3)
+
+# ANOVA
+ezANOVA(PropRecalledByEmotion, dv = proportion, wid = subjectID, within = Category) -> ANOVA
+
+DFd <- ANOVA$ANOVA$DFn
+DFn <- ANOVA$ANOVA$DFd
+F   <- round(ANOVA$ANOVA$F, 2)
+p   <- round(ANOVA$ANOVA$p, 2)
+
+PropRecalledByEmotion %>%
+  ggplot(aes(x = Category, y = proportion, group = subjectID)) +
+  geom_point() +
+  stat_summary(aes(group = NULL, color = Category), 
+               geom = "crossbar", 
+               width = .2, 
+               fun.data = "mean_se") +
+  annotate(geom = "text", 
+           x = 2, 
+           y = 1, 
+           label = paste0("F(", DFd, ",", DFn, ") =", F, ", p = ", p)) +
+  theme_grey() +
+  scale_y_continuous(limits = c(0,NA)) + 
+  labs(title = "Proportion Recalled",
+       subtitle = "By Valence and Condition",
+       y = "Proportion",
+       x = "Condition-Valence")
+```
+
+The results of the ANOVA allows us to reject the null hypothesis that all three of our conditions are equal.  
+
+Follow-up hypothesis tests #1
+
+Are emotional words remembered better than neutral words in the halfEmotional condition?
+
+A table:
+
+```{r}
+(study %>%
+  filter(Condition == "halfEmotional") %>%
+  group_by(subjectID, EmotionCategory, Condition) %>%
+  summarize(proportion = mean(recalled)) %>%
+  unite(col = "Category", Condition, EmotionCategory, sep = "-") -> PropRecalledByEmotion)
+```
+
+A figure:
+
+```{r}
+PropRecalledByEmotion %>%
+  t.test(proportion ~ Category, data = ., paired = TRUE) -> testResult
+
+df <- testResult$parameter[["df"]]
+t  <- round(testResult$statistic, 2)
+p  <- round(testResult$p.value, 3)
+
+PropRecalledByEmotion %>%
+  ggplot(aes(x = Category, y = proportion, group = subjectID)) +
+  geom_point() +
+  geom_line() +
+  stat_summary(aes(group = NULL, color = Category), 
+               geom = "crossbar", 
+               width = .2, 
+               fun.data = "mean_se") +
+  annotate(geom = "text", 
+           x = 1.5, 
+           y = 1, 
+           label = paste0("t(", df, ") =", t, ", p = ", p)) +
+  theme_grey() +
+  scale_y_continuous(limits = c(0,NA)) + 
+  labs(title = "Proportion Recalled",
+       subtitle = "Half-Emotional Condition Only",
+       y = "Proportion",
+       x = "Category-Valence") +
+  scale_color_manual(values = defaultColors[c(2,3)]) 
+  
+```
+
+Are emotional words more likely to be recalled than neutral words in the `halfEmotional` condition? - **YES!!**
+
+Follow-up hypothesis tests #2
+
+Is this at the expense of neutral words?
+
+A table:
+
+```{r}
+(study %>%
+  filter(EmotionCategory == "Neutral") %>%
+  group_by(subjectID, EmotionCategory, Condition) %>%
+  summarize(proportion = mean(recalled)) %>%
+  unite(col = "Category", Condition, EmotionCategory, sep = "-") -> PropRecalledByEmotion)
+```
+
+A figure:
+
+```{r}
+PropRecalledByEmotion %>%
+  t.test(proportion ~ Category, data = ., paired = TRUE) -> testResult
+
+df <- testResult$parameter[["df"]]
+t  <- round(testResult$statistic, 2)
+p  <- round(testResult$p.value, 3)
+
+PropRecalledByEmotion %>%
+  ggplot(aes(x = Category, y = proportion, group = subjectID)) +
+  geom_point() +
+  geom_line() +
+  stat_summary(aes(group = NULL, color = Category), 
+               geom = "crossbar", 
+               width = .2, 
+               fun.data = "mean_se") +
+  annotate(geom = "text", 
+           x = 1.5, 
+           y = 1, 
+           label = paste0("t(", df, ") =", t, ", p = ", p)) +
+  theme_grey() +
+  scale_y_continuous(limits = c(0,NA)) + 
+  labs(title = "Proportion Recalled",
+       subtitle = "Neutral Words Only",
+       y = "Proportion",
+       x = "Condition-Valence") +
+  scale_color_manual(values = defaultColors[c(1,3)]) 
+  
+```
+
+Is this at the expense of Neutral words? - **YES!!** ...depending on how you feel about p < .05 :/  
+
+### Does stimulation moderate this effect?
+
+Does stimulation moderate this effect? Lets run an ANOVA and find out.  
+
+```{r, warning=FALSE}
+(study %>%
+  left_join(subjectIDs_df, by = c("subjectID" = "SubjectID", "sessionID" = "Session")) %>%
+  group_by(subjectID, StimulationProtocolID, EmotionCategory, Condition) %>%
+  summarize(proportion = mean(recalled)) %>% 
+  unite(col = "Category", Condition, EmotionCategory, sep = "-") -> PropRecalledByEmotion)
+```
+
+```{r}
+PropRecalledByEmotion %>%
+  ggplot(aes(x = Category, y = proportion, group = subjectID)) +
+  facet_grid(.~StimulationProtocolID) +
+  geom_point() +
+  stat_summary(aes(group = NULL, color = Category), 
+               geom = "crossbar", 
+               width = .2, 
+               fun.data = "mean_se") +
+  theme_grey() +
+  scale_y_continuous(limits = c(0,NA)) + 
+  labs(title = "Proportion Recalled",
+       subtitle = "By Stimulation Protocol",
+       y = "Proportion",
+       x = "",
+       color = "Condition-Valuence") +
+  theme(axis.text.x = element_blank())
+```
+
+```{r, warning = FALSE}
+# ANOVA
+ezANOVA(PropRecalledByEmotion, dv = proportion, wid = subjectID, within = .(Category, StimulationProtocolID))
+```
+
+Does stimulation moderate this effect? - **No**.
+
+# EEG Data Check
+
+Describe Data
+
+```{r}
+FullPath <- list.files(path = "/Volumes/GoogleDrive/My Drive/Behavioral Data/TOTO-tDCS", 
+                       recursive = TRUE, 
+                       full.names = TRUE,
+                       pattern = "\\.[ein][ane][sfd][yof]")
+Path     <- as.character(lapply(X = FullPath, FUN = dirname))
+FileName <- as.character(lapply(X = FullPath, FUN = basename))
+DateTime <- regmatches(m = regexpr(text = FullPath, 
+                                   pattern = "(?<=\\/)[0-9]*(?=_)", 
+                                   perl = TRUE), 
+                       x = FullPath)
+subject  <- regmatches(m = regexpr(text = FullPath, 
+                                   pattern = "s[0-9]{3}", 
+                                   perl = TRUE), 
+                       x = FullPath)
+session  <- regmatches(m = regexpr(text = FullPath, 
+                                   pattern = "ses-0[12]",
+                                   perl = TRUE),
+                       x = FullPath)
+Task     <- regmatches(m = regexpr(text = FullPath, 
+                                   pattern = "(?<=_)[a-zA-Z ]*(?=\\.)",
+                                   perl = TRUE),
+                       x = FullPath)
+Ext      <- regmatches(m = regexpr(text = FullPath, 
+                                   pattern = "\\..*$",
+                                   perl = TRUE),
+                       x = FullPath)
+eegdata <- data.frame(FullPath = FullPath, 
+                      Path = Path, 
+                      FileName = FileName, 
+                      DateTime = DateTime, 
+                      subject = subject, 
+                      session = session, 
+                      Task = Task, 
+                      Ext = Ext)
+```
+
+Which datasets have Marker codes?
+
+```{r}
+eegdata %>%
+  filter(grepl(x = Ext, pattern = "\\.easy")) %>%
+  complete(subject, session) -> ERE
+
+ERE$hasAnyEEGcodes <- NA
+ERE$hasAllEEGcodes <- NA
+
+data <- vector(mode = "list", length = nrow(ERE))
+
+for(i in 1:nrow(ERE)){
+  if(!is.na(ERE$FullPath[[i]])){
+    print(i)
+    data[[i]] <- read.table(as.character(ERE$FullPath[[i]]))
+  }
+}
+
+for(i in 1:length(data)){
+  if(is.null(data[[i]])){
+  } else{
+    ERE$hasAnyEEGcodes[[i]] <- length(unique(data[[i]]$V12)) > 1
+    ERE$hasAllEEGcodes[[i]] <- all(is.element(c(1, 99), unique(data[[i]]$V12)))
+  }
+}
+```
+
+A Table:
+
+```{r}
+ERE %>%
+  filter(!is.element(subject, c("s004", "s025"))) 
+```
+
+How many EEG data sets do we have with Any EEG codes?
+
+```{r}
+ERE %>%
+  filter(!is.element(subject, c("s004", "s025"))) %>%
+  count(hasAnyEEGcodes)
+```
+
+How many EEG data sets do we have with Any EEG codes? *n* *=* *36*
+
+```{r}
+ERE %>%
+  filter(!is.element(subject, c("s004", "s025"))) %>%
+  count(hasAllEEGcodes)
+```
+
+How many EEG datasets do we have with All EEG codes? *n* *=* *21*
+
+```{r}
+ERE %>%
+  filter(!is.element(subject, c("s004", "s025"))) %>%
+  select(subject, session, hasAnyEEGcodes) %>%
+  spread(session, hasAnyEEGcodes) %>%
+  mutate(BothSessionsHaveEEGdataWithCodes = `ses-01` & `ses-02`)
+```
+
+How many EEG data sets do we have that have EEG codes in both sessions?
+
+```{r}
+ERE %>%
+  filter(!is.element(subject, c("s004", "s025"))) %>%
+  select(subject, session, hasAnyEEGcodes) %>%
+  spread(session, hasAnyEEGcodes) %>%
+  mutate(BothSessionsHaveEEGdataWithCodes = `ses-01` & `ses-02`) %>%
+  count(BothSessionsHaveEEGdataWithCodes)
+```
+
+How many EEG data sets do we have that have EEG codes in both sessions? *n* *=* *10*
